@@ -117,7 +117,6 @@ namespace ProjectileAnimator
     [System.Serializable]
     public class ProjectilePathColor {
         public List<ProjectileKey> keys;
-        [ColorUsage(false)]
         public Color color;
     }
 }
