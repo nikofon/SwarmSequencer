@@ -7,9 +7,6 @@ using System;
 using Unity.Collections;
 using UnityEditor;
 using System.Threading;
-#if UNITY_EDITOR
-using Unity.EditorCoroutines.Editor;
-#endif
 
 namespace ProjectileAnimator
 {
@@ -150,6 +147,7 @@ namespace ProjectileAnimator
             originalPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             targetPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             int i = 0;
+            Debug.Log($"pos count: {pos.Count} array length {currentPositions.Length}");
             foreach (var p in pos)
             {
                 currentPositions[i] = CellSize * (Vector3)p.Value;
@@ -158,7 +156,8 @@ namespace ProjectileAnimator
                 i++;
             }
 
-            OnFrameChanged?.Invoke(newTurn, newTurn + 1);
+            Debug.Log("Finished animation");
+            OnFrameChanged?.Invoke(newTurn, newTurn + order);
         }
 
 
@@ -348,13 +347,15 @@ namespace ProjectileAnimator
             YieldInstruction waitAmount;
             if (!useFixedTime) waitAmount = new WaitForEndOfFrame();
             else waitAmount = new WaitForSeconds(fixedTime);
-            switch (AnimationType) {
-                case AnimationTypes.Pingpong:
-                    Action increment = () => { order *= -1; skipFrame = true; };
-                    OnAnimationFinished += increment;
-                    while (running) {
-                        if (!paused)
-                        {
+            while (running)
+            {
+                if (!paused)
+                {
+                    switch (AnimationType)
+                    {
+                        case AnimationTypes.Pingpong:
+                            Action increment = () => { order *= -1; skipFrame = true; };
+                            OnAnimationFinished += increment;
                             if (!skipFrame)
                                 ProjectileMovement();
                             if (t >= 1)
@@ -365,20 +366,15 @@ namespace ProjectileAnimator
                                     DisposeNativeCollections();
                                 }
                                 else { skipFrame = false; }
+                                Debug.Log($"Current frame: {currentFrame}");
                                 ChangeTurn(currentFrame, order);
                             }
-                        }
-                        yield return waitAmount;
-                    }
-                    OnAnimationFinished -= increment;
-                    break;
-                case AnimationTypes.Repeat:
-                    Action reset = () => { skipFrame = true; currentFrame = 0; };
-                    OnAnimationFinished += reset;
-                    while (running)
-                    {
-                        if (!paused)
-                        {
+                            yield return waitAmount;
+                            OnAnimationFinished -= increment;
+                            break;
+                        case AnimationTypes.Repeat:
+                            Action reset = () => { skipFrame = true; currentFrame = 0; };
+                            OnAnimationFinished += reset;
                             if (!skipFrame) ProjectileMovement();
                             if (t >= 1)
                             {
@@ -390,18 +386,12 @@ namespace ProjectileAnimator
                                 else { skipFrame = false; }
                                 ChangeTurn(currentFrame);
                             }
-                        }
-                        yield return waitAmount;
-                    }
-                    OnAnimationFinished -= reset;
-                    break;
-                case AnimationTypes.Single:
-                    Action stop = () => { Stop(); };
-                    OnAnimationFinished += stop;
-                    while (running)
-                    {
-                        if (!paused)
-                        {
+                            yield return waitAmount;
+                            OnAnimationFinished -= reset;
+                            break;
+                        case AnimationTypes.Single:
+                            Action stop = () => { Stop(); };
+                            OnAnimationFinished += stop;
                             ProjectileMovement();
                             if (t >= 1)
                             {
@@ -409,11 +399,11 @@ namespace ProjectileAnimator
                                 DisposeNativeCollections();
                                 ChangeTurn(currentFrame);
                             }
-                        }
-                        yield return waitAmount;
+                            yield return waitAmount;
+                            OnAnimationFinished -= stop;
+                            break;
                     }
-                    OnAnimationFinished -= stop;
-                    break;
+                }
             }
         }
 
@@ -453,115 +443,6 @@ namespace ProjectileAnimator
             if (Application.isPlaying && PlayOnAwake)
                 Play();
         }
-
-#if UNITY_EDITOR
-
-        public void PlayAnimationEditor()
-        {
-            if (paused) { paused = false; return; }
-            if (FrameDatas == null) FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text);
-            ChangeTurn(0);
-            running = true;
-            EditorCoroutineUtility.StartCoroutine(RunProjectileMovementEditor(0.02f), this);
-        }
-        public void StopAnimationEditor()
-        {
-            running = false;
-            paused = false;
-            foreach (var obj in projectilePositions) DestroyImmediate(obj.Value.gameObject);
-            projectilePositions.Clear();
-            order = 1;
-            skipFrame = false;
-            currentFrame = 0;
-            DisposeNativeCollections();
-            FrameDatas = null;
-        }
-
-        IEnumerator RunProjectileMovementEditor(float delta)
-        {
-            var waitAmount = new EditorWaitForSeconds(delta);
-            switch (AnimationType)
-            {
-                case AnimationTypes.Pingpong:
-                    Action increment = () => { order *= -1; skipFrame = true; };
-                    OnAnimationFinished += increment;
-                    while (running)
-                    {
-                        if (!paused)
-                        {
-                            if (!skipFrame)
-                                ProjectileMovement();
-                            if (t >= 1)
-                            {
-                                if (!skipFrame)
-                                {
-                                    currentFrame += order;
-                                    DisposeNativeCollections();
-                                }
-                                else { skipFrame = false; }
-                                ChangeTurn(currentFrame, order, DisposalMode.Immediate);
-                            }
-                        }
-                        yield return waitAmount;
-                    }
-                    OnAnimationFinished -= increment;
-                    break;
-                case AnimationTypes.Repeat:
-                    Action reset = () => { skipFrame = true; currentFrame = 0; };
-                    OnAnimationFinished += reset;
-                    while (running)
-                    {
-                        if (!paused)
-                        {
-                            if (!skipFrame) ProjectileMovement();
-                            if (t >= 1)
-                            {
-                                if (!skipFrame)
-                                {
-                                    currentFrame++;
-                                    DisposeNativeCollections();
-                                }
-                                else { skipFrame = false; }
-                                ChangeTurn(currentFrame, dsplM: DisposalMode.Immediate);
-                            }
-                        }
-                        yield return waitAmount;
-                    }
-                    OnAnimationFinished -= reset;
-                    break;
-                case AnimationTypes.Single:
-                    Action stop = () => { StopAnimationEditor(); };
-                    OnAnimationFinished += stop;
-                    while (running)
-                    {
-                        if (!paused)
-                        {
-                            ProjectileMovement();
-                            if (t >= 1)
-                            {
-                                currentFrame++;
-                                DisposeNativeCollections();
-                                ChangeTurn(currentFrame, dsplM: DisposalMode.Immediate);
-                            }
-                        }
-                        yield return waitAmount;
-                    }
-                    OnAnimationFinished -= stop;
-                    break;
-            }
-        }
-
-        void CleanUp(PlayModeStateChange x)
-        {
-            if (x == PlayModeStateChange.ExitingEditMode)
-            {
-                if (Running)
-                {
-                    StopAnimationEditor();
-                }
-            }
-        }
-#endif
 
         void DisposeNativeCollections()
         {

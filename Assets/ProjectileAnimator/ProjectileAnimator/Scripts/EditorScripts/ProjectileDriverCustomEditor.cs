@@ -112,9 +112,7 @@ namespace ProjectileAnimator
             EditorGUILayout.PropertyField(projectileDataAsset);
             if (Application.isPlaying || !(loadData && loadProjectileLookUps.boolValue))
                 EditorGUILayout.PropertyField(projectileLookUps);
-            GUI.enabled = !targetDriver.Playing;
             EditorGUILayout.PropertyField(animationType);
-            GUI.enabled = true;
             EditorGUILayout.PropertyField(UseWorldSpace);
             EditorGUILayout.PropertyField(CellSize);
             if (Application.isPlaying || !(loadData && loadTimeBetweenTurns.boolValue))
