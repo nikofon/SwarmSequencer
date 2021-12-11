@@ -12,7 +12,7 @@ namespace ProjectileAnimator
         {
             if (paused) { paused = false; return; }
             if (FrameDatas == null) FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text);
-            ChangeTurn(0);
+            ChangeFrame(0);
             running = true;
             EditorCoroutineUtility.StartCoroutine(RunProjectileMovementEditor(0.02f), this);
         }
@@ -51,7 +51,7 @@ namespace ProjectileAnimator
                                     DisposeNativeCollections();
                                 }
                                 else { skipFrame = false; }
-                                ChangeTurn(currentFrame, order, DisposalMode.Immediate);
+                                ChangeFrame(currentFrame, DisposalMode.Immediate);
                             }
                             yield return waitAmount;
                             OnAnimationFinished -= increment;
@@ -68,7 +68,7 @@ namespace ProjectileAnimator
                                     DisposeNativeCollections();
                                 }
                                 else { skipFrame = false; }
-                                ChangeTurn(currentFrame, dsplM: DisposalMode.Immediate);
+                                ChangeFrame(currentFrame, dsplM: DisposalMode.Immediate);
                             }
                             yield return waitAmount;
                             OnAnimationFinished -= reset;
@@ -81,12 +81,14 @@ namespace ProjectileAnimator
                             {
                                 currentFrame++;
                                 DisposeNativeCollections();
-                                ChangeTurn(currentFrame, dsplM: DisposalMode.Immediate);
+                                ChangeFrame(currentFrame, dsplM: DisposalMode.Immediate);
                             }
                             yield return waitAmount;
                             OnAnimationFinished -= stop;
                             break;
                     }
+                    t += delta / timeOverrideValue; 
+                    currentTime += order * delta; 
                 }
             }
         }

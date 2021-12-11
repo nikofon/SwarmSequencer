@@ -43,7 +43,7 @@ namespace ProjectileAnimator
         [Tooltip("How to handle objects that have completed the animation?")]
         public UnwantedObjectsHandlingType CompletedObjectsHandling = UnwantedObjectsHandlingType.Destroy;
 
-        public AnimationTypes AnimationType { get => animationType; set { if (Playing) { Debug.LogWarning("Can't change AnimationType while the animation is playing."); return; } animationType = value; } }
+        public AnimationTypes AnimationType { get => animationType; set { animationType = value; } }
         [SerializeField] AnimationTypes animationType = AnimationTypes.Single;
 
         public List<FrameTimeOverride> frameTimeOverrides = new List<FrameTimeOverride>();
@@ -52,7 +52,7 @@ namespace ProjectileAnimator
         /// <summary>
         /// List of current frame datas
         /// </summary>
-        public ReadOnlyCollection<FrameData> ActiveFrameDatas { get { if (readonlyFrameData == null) readonlyFrameData = new ReadOnlyCollection<FrameData>(FrameDatas); return readonlyFrameData; } }
+        public ReadOnlyCollection<FrameData> ActiveFrameDatas { get { if (readonlyFrameData == null) { if (FrameDatas == null) return null; readonlyFrameData = new ReadOnlyCollection<FrameData>(FrameDatas); } return readonlyFrameData; } }
         ReadOnlyCollection<FrameData> readonlyFrameData;
 
         private List<FrameData> FrameDatas;
@@ -78,7 +78,7 @@ namespace ProjectileAnimator
         NativeArray<Vector3> originalPositions;
         NativeArray<Vector3> targetPositions;
 
-        //Turn info
+        //Frame info
         public int CurrentFrame { get => currentFrame; }
         int currentFrame = 0;
         /// <summary>
@@ -88,7 +88,7 @@ namespace ProjectileAnimator
 
         //Status variables
         /// <summary>
-        /// Is an animation is currently playing?
+        /// Is an animation currently playing?
         /// </summary>
         public bool Playing { get => running && !paused; }
         public bool Paused { get => paused; }
@@ -96,6 +96,16 @@ namespace ProjectileAnimator
         /// Is animation active? (returns true even if paused)
         /// </summary>
         public bool Running { get => running; }
+
+        public float CurrentTime { get => currentTime; set { if (FrameDatas == null) return; 
+                int newFrame = Mathf.Clamp(DetermineFrameByTime(value), 0, FrameDatas.Count - 1); 
+                if (newFrame != currentFrame) { currentFrame = newFrame; Debug.Log(newFrame); ChangeFrame(newFrame); }
+                currentTime = value;
+                t = DetermineTByTime(value); 
+                ProjectileMovement(); } }
+        float currentTime;
+
+        public float Duration { get => CalculateDuration(); }
 
         bool paused;
 
@@ -113,8 +123,9 @@ namespace ProjectileAnimator
         [Min(1)]
         public int batchSize = 1;
 
-        void ChangeTurn(int newTurn, int order = 1, DisposalMode dsplM = DisposalMode.Normal)
+        void ChangeFrame(int newTurn, DisposalMode dsplM = DisposalMode.Normal)
         {
+            DisposeNativeCollections();
             if ((order > 0 && newTurn + 1 >= FrameDatas.Count) || (order < 0 && newTurn - 1 < 0)) {
                 OnAnimationFinished?.Invoke();
                 return; }
@@ -125,6 +136,7 @@ namespace ProjectileAnimator
             Dictionary<Vector3, ProjectileKey> toInstantiate = new Dictionary<Vector3, ProjectileKey>();
             List<ProjectileKey> toRemove = new List<ProjectileKey>();
             var nextPos = FrameDatas[newTurn + order].ProjectilePositionData;
+            Debug.Log($"Changed frame from {newTurn} to {newTurn +order}");
             foreach (var p in projectilePositions)
             {
                 if (!nextPos.ContainsKey(p.Key)) toRemove.Add(p.Key);
@@ -147,7 +159,6 @@ namespace ProjectileAnimator
             originalPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             targetPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             int i = 0;
-            Debug.Log($"pos count: {pos.Count} array length {currentPositions.Length}");
             foreach (var p in pos)
             {
                 currentPositions[i] = CellSize * (Vector3)p.Value;
@@ -160,11 +171,76 @@ namespace ProjectileAnimator
             OnFrameChanged?.Invoke(newTurn, newTurn + order);
         }
 
+        public int DetermineFrameByTime(float time)
+        {
+            int frame = 0;
+            if(frameTimeOverrides.Count == 0)
+            {
+                frame = Mathf.FloorToInt(time / TimeBetweenFrames);
+            }
+            else
+            {
+                float curTime = 0;
+                for (int i = 0; i < FrameDatas.Count-1; i++)
+                {
+                    var timeOverride = frameTimeOverrides.Find(x => x.Equals(new FrameTimeOverride { FrameOne = i, FrameTwo = i + 1}));
+                    if (timeOverride != null)
+                    {
+                        curTime += timeOverride.value;
+                    }
+                    else curTime += TimeBetweenFrames;
+                    if (time < curTime) break;
+                    else frame++;
+                }
+            }
+            return frame;
+        }
+
+        float CalculateDuration()
+        {
+            float res = 0;
+            if (FrameDatas == null) { if (projectileDataAsset == null) return 0; FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text); }
+            for (int i = 0; i < FrameDatas.Count - 1; i++)
+            {
+                var timeOverride = frameTimeOverrides.Find(x => x.Equals(new FrameTimeOverride { FrameOne = i, FrameTwo = i + 1 }));
+                if (timeOverride != null)
+                {
+                    res += timeOverride.value;
+                }
+                else res += TimeBetweenFrames;
+            }
+            return res;
+        }
+
+        float DetermineTByTime(float time)
+        {
+            float t = 0;
+            if (frameTimeOverrides.Count == 0)
+            {
+                t = time % TimeBetweenFrames;
+                Debug.Log(t);
+            }
+            else
+            {
+                float curTime = 0;
+                for (int i = 0; i < FrameDatas.Count-1; i++)
+                {
+                    var timeOverride = frameTimeOverrides.Find(x => x.Equals(new FrameTimeOverride { FrameOne = i, FrameTwo = i + 1 }));
+                    if (timeOverride != null)
+                    {
+                        curTime += timeOverride.value;
+                    }
+                    else curTime += TimeBetweenFrames;
+                    if (time < curTime) {
+                        float overrideValue = timeOverride == null ? TimeBetweenFrames : timeOverride.value;
+                        t =(overrideValue - (curTime - time)) / overrideValue; break; }
+                }
+            }
+            return t;
+        }
 
         void ProjectileMovement(bool useFixedTime = false, float fixedTime = 0)
         {
-            if (!useFixedTime) t += Time.deltaTime / timeOverrideValue;
-            else t += fixedTime / timeOverrideValue;
             JobHandle h = new MoveProjectiles() { transform = UseWorldSpace? Matrix4x4.identity: transform.localToWorldMatrix, positions = currentPositions, originalPositions = originalPositions, targets = targetPositions, t = t }.Schedule(currentPositions.Length, batchSize);
             h.Complete();
             int i = 0;
@@ -297,7 +373,7 @@ namespace ProjectileAnimator
             if (paused) { paused = false; return; }
             if (running) return;
             if (FrameDatas == null) FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text);
-            ChangeTurn(currentFrame);
+            ChangeFrame(currentFrame);
             running = true;
             StartCoroutine(RunProjectileMovement());
         }
@@ -314,7 +390,7 @@ namespace ProjectileAnimator
             currentFrame = fromFrame;
             if (FrameDatas == null) FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text);
             this.order = order;
-            ChangeTurn(currentFrame);
+            ChangeFrame(currentFrame);
             running = true;
             StartCoroutine(RunProjectileMovement());
         }
@@ -363,11 +439,9 @@ namespace ProjectileAnimator
                                 if (!skipFrame)
                                 {
                                     currentFrame += order;
-                                    DisposeNativeCollections();
                                 }
                                 else { skipFrame = false; }
-                                Debug.Log($"Current frame: {currentFrame}");
-                                ChangeTurn(currentFrame, order);
+                                ChangeFrame(currentFrame);
                             }
                             yield return waitAmount;
                             OnAnimationFinished -= increment;
@@ -381,10 +455,9 @@ namespace ProjectileAnimator
                                 if (!skipFrame)
                                 {
                                     currentFrame++;
-                                    DisposeNativeCollections();
                                 }
                                 else { skipFrame = false; }
-                                ChangeTurn(currentFrame);
+                                ChangeFrame(currentFrame);
                             }
                             yield return waitAmount;
                             OnAnimationFinished -= reset;
@@ -396,13 +469,14 @@ namespace ProjectileAnimator
                             if (t >= 1)
                             {
                                 currentFrame++;
-                                DisposeNativeCollections();
-                                ChangeTurn(currentFrame);
+                                ChangeFrame(currentFrame);
                             }
                             yield return waitAmount;
                             OnAnimationFinished -= stop;
                             break;
                     }
+                    if (!useFixedTime) { t += Time.deltaTime / timeOverrideValue; currentTime += order * Time.deltaTime; }
+                    else { currentTime += order * fixedTime; t += fixedTime / timeOverrideValue; }
                 }
             }
         }
@@ -423,6 +497,7 @@ namespace ProjectileAnimator
 
         private void Awake()
         {
+
 #if UNITY_EDITOR
             if(!Application.isPlaying) EditorApplication.playModeStateChanged += CleanUp;
 #endif
@@ -442,6 +517,8 @@ namespace ProjectileAnimator
                     FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text);
             if (Application.isPlaying && PlayOnAwake)
                 Play();
+            Debug.Log(DetermineFrameByTime(2.5f));
+            Debug.Log(DetermineTByTime(2.5f));
         }
 
         void DisposeNativeCollections()

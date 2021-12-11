@@ -121,6 +121,11 @@ namespace ProjectileAnimator
                 EditorGUILayout.PropertyField(turnTimeOverrides);
             EditorGUILayout.PropertyField(CompletedObjectsHandling);
             EditorGUILayout.PropertyField(UnassignedObjectsHandling);
+            float tempTime = EditorGUILayout.Slider(targetDriver.CurrentTime, 0, targetDriver.Duration - 0.001f);
+            if(tempTime != targetDriver.CurrentTime)
+            {
+                targetDriver.CurrentTime = tempTime;
+            }
             EditorGUILayout.Space(2);
             EditorGUILayout.PropertyField(PlayOnAwake);
             showPosition = EditorGUILayout.BeginFoldoutHeaderGroup(showPosition, "Advanced");

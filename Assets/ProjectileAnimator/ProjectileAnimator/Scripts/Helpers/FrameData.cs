@@ -118,13 +118,12 @@ namespace ProjectileAnimator
         public int FrameOne;
         public int FrameTwo;
         public float value;
-        public bool strict;
 
         public override bool Equals(object obj)
         {
             if ((obj == null) || !this.GetType().Equals(obj.GetType())) return false;
             var o = (FrameTimeOverride) obj;
-            return strict? (FrameOne == o.FrameOne && FrameTwo == o.FrameTwo) : (FrameOne == o.FrameOne && FrameTwo == o.FrameTwo) || (FrameOne == o.FrameTwo && FrameTwo == o.FrameOne);
+            return (FrameOne == o.FrameOne && FrameTwo == o.FrameTwo) || (FrameOne == o.FrameTwo && FrameTwo == o.FrameOne);
         }
     }
 }
