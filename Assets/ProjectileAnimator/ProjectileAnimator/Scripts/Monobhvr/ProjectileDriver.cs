@@ -147,7 +147,7 @@ namespace ProjectileAnimator
                 projectilePositions.Remove(trmv);
                 pos.Remove(trmv);
                 if (UnassignedObjectsHandling == UnwantedObjectsHandlingType.Destroy && trvmGO != null) {
-                    if (dsplM == DisposalMode.Normal) { Destroy(trvmGO.gameObject); }
+                    if (Application.isPlaying && dsplM == DisposalMode.Normal) { Destroy(trvmGO.gameObject); }
                     else DestroyImmediate(trvmGO.gameObject); }
             }
             foreach (var v in pos)

@@ -13,7 +13,6 @@ namespace ProjectileAnimator.Timeline
             var playable = ScriptPlayable<ProjectileAnimationBehaviour>.Create(graph);
 
             var projectileAnimationBehaviour = playable.GetBehaviour();
-            //lightControlBehaviour.light = light.Resolve(graph.GetResolver());
             projectileAnimationBehaviour.asset = asset;
 
             return playable;

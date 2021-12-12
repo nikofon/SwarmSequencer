@@ -10,16 +10,35 @@ namespace ProjectileAnimator {
         public class ProjectileAnimationBehaviour : PlayableBehaviour
         {
             public TextAsset asset;
+            ProjectileDriver owner;
             public override void ProcessFrame(Playable playable, UnityEngine.Playables.FrameData info, object playerData)
             {
-                Debug.Log(playable.GetTime());
-                var pjd = playerData as ProjectileDriver;
-                if(pjd.ActiveFrameDatas == null)
+                if(owner == null)
                 {
-                    pjd.ChangeAsset(asset.text);
+                    owner = playerData as ProjectileDriver;
+
+                    if(owner != null) owner.ChangeAsset(asset.text);
                 }
-                pjd.CurrentTime = (float) playable.GetTime();
+                if (owner == null) return;
+
+                
+
+                owner.CurrentTime = (float) playable.GetTime();
             }
+
+
+            public override void OnPlayableDestroy(Playable playable)
+            {
+                if(owner != null)
+                {
+                    owner.Clear();
+                }
+            }
+
+        }
+
+        public class ProjectileAnimationMixerBehaviour : PlayableBehaviour
+        {
 
         }
     }
