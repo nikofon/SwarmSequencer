@@ -315,7 +315,7 @@ MonoBehaviour:
   loadTimeBetweenTurns: 0
   loadTurnTimeOverrides: 0
   loadProjectileLookUps: 0
-  projectileDataAsset: {fileID: 4900000, guid: 39bd79d95ef9e204ba7354f5f47190c1, type: 3}
+  projectileDataAsset: {fileID: 4900000, guid: 135381c737dd64a4fb95238ecf1b40bc, type: 3}
   projectileLookUps:
   - prefab: {fileID: 8790268461584312071, guid: 9f179ecffe1689844ab5590ddec42e49, type: 3}
     id: 1

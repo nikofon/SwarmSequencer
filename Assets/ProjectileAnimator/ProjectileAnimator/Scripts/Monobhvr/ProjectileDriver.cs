@@ -147,7 +147,6 @@ namespace ProjectileAnimator
             originalPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             targetPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             int i = 0;
-            Debug.Log($"pos count: {pos.Count} array length {currentPositions.Length}");
             foreach (var p in pos)
             {
                 currentPositions[i] = CellSize * (Vector3)p.Value;
@@ -156,7 +155,6 @@ namespace ProjectileAnimator
                 i++;
             }
 
-            Debug.Log("Finished animation");
             OnFrameChanged?.Invoke(newTurn, newTurn + order);
         }
 
