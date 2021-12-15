@@ -21,6 +21,42 @@ namespace ProjectileAnimator
         }
     }
 
+    public class NamingViolationException : Exception
+    {
+        public NamingViolationException()
+        {
+            Debug.LogError("Can't parse provided name!");
+        }
+
+        public NamingViolationException(string message)
+            : base(message)
+        {
+        }
+
+        public NamingViolationException(string message, Exception inner)
+            : base(message, inner)
+        {
+        }
+    }
+
+    public class SelfReferencingLoopException : Exception
+    {
+        public SelfReferencingLoopException()
+        {
+            Debug.LogError("This texture points to itself!");
+        }
+
+        public SelfReferencingLoopException(string message)
+            : base(message)
+        {
+        }
+
+        public SelfReferencingLoopException(string message, Exception inner)
+            : base(message, inner)
+        {
+        }
+    }
+
     public class InstanceConflictException: Exception
     {
         public InstanceConflictException()

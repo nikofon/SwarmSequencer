@@ -9,6 +9,7 @@
         </ui:VisualElement>
         <ui:VisualElement style="height: 100%; width: 150px; flex-grow: 0; flex-shrink: 0;">
             <uie:Vector2Field label="Center" style="flex-direction: column;" />
+            <ui:Toggle label="Use Additional Textures" name="UseAdditionalTextures" style="flex-direction: column; align-items: stretch; justify-content: space-between;" />
             <ui:Button text="Bake" display-tooltip-when-elided="true" name="BakeButton" />
             <ui:ProgressBar title="Finished" name="BakingProgress" tabindex="0" />
         </ui:VisualElement>

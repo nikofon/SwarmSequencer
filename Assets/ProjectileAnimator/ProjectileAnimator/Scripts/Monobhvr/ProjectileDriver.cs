@@ -122,7 +122,7 @@ namespace ProjectileAnimator
             var timeOverride = frameTimeOverrides.Find(x => x.Equals(new FrameTimeOverride() { FrameOne = currentFrame, FrameTwo = currentFrame + order }));
             timeOverrideValue = timeOverride == null ? TimeBetweenFrames : timeOverride.value;
             var pos = new Dictionary<ProjectileKey, SerializableVector3>(FrameDatas[newTurn].ProjectilePositionData);
-            Dictionary<Vector3, ProjectileKey> toInstantiate = new Dictionary<Vector3, ProjectileKey>();
+            Dictionary<ProjectileKey, Vector3> toInstantiate = new Dictionary<ProjectileKey, Vector3>();
             List<ProjectileKey> toRemove = new List<ProjectileKey>();
             var nextPos = FrameDatas[newTurn + order].ProjectilePositionData;
             foreach (var p in projectilePositions)
@@ -140,7 +140,7 @@ namespace ProjectileAnimator
             }
             foreach (var v in pos)
             {
-                if (!projectilePositions.ContainsKey(v.Key)) toInstantiate.Add(v.Value, v.Key);
+                if (!projectilePositions.ContainsKey(v.Key)) toInstantiate.Add(v.Key, v.Value);
             }
             InstantiateProjectiles(toInstantiate);
             currentPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
@@ -180,16 +180,16 @@ namespace ProjectileAnimator
         /// Instantiates given projectiles
         /// </summary>
         /// <param name="toInstantiate"> key - position, value.item1 = projectile id, value.item2 internalID</param>
-        void InstantiateProjectiles(Dictionary<Vector3, ProjectileKey> toInstantiate)
+        void InstantiateProjectiles(Dictionary<ProjectileKey, Vector3> toInstantiate)
         {
             foreach (var v in toInstantiate)
             {
-                var foundObj = projectileLookUps.Find(x => x.id == v.Value.ProjectilePrefabId );
+                var foundObj = projectileLookUps.Find(x => x.id == v.Key.ProjectilePrefabId );
                 if (foundObj == null) { Clear();
-                    throw new NoPrefabWithGivenIdFoundException($"No prefab with id {v.Value.ProjectilePrefabId} found, add prefab with this id to PrefabLookUps"); }
+                    throw new NoPrefabWithGivenIdFoundException($"No prefab with id {v.Key.ProjectilePrefabId} found, add prefab with this id to PrefabLookUps"); }
                 GameObject go = foundObj.prefab;
-                var g = Instantiate(go, v.Key, Quaternion.identity);
-                projectilePositions.Add(new ProjectileKey(v.Value.ProjectilePrefabId, v.Value.ProjectileInternalId), g.transform);
+                var g = Instantiate(go, v.Value, Quaternion.identity);
+                projectilePositions.Add(new ProjectileKey(v.Key.ProjectilePrefabId, v.Key.ProjectileInternalId), g.transform);
             }
             projectilePositions.SortProjectileDictionary();
         }

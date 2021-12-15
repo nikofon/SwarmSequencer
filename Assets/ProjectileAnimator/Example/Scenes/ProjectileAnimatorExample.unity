@@ -315,12 +315,16 @@ MonoBehaviour:
   loadTimeBetweenTurns: 0
   loadTurnTimeOverrides: 0
   loadProjectileLookUps: 0
-  projectileDataAsset: {fileID: 4900000, guid: 135381c737dd64a4fb95238ecf1b40bc, type: 3}
+  projectileDataAsset: {fileID: 4900000, guid: 0266b9524ed95ae4db6a9e16629c9f22, type: 3}
   projectileLookUps:
-  - prefab: {fileID: 8790268461584312071, guid: 9f179ecffe1689844ab5590ddec42e49, type: 3}
+  - prefab: {fileID: 6370208376843780026, guid: 44df9f86a71b8dc46860d64dfc131c5d, type: 3}
     id: 1
+  - prefab: {fileID: 6370208376843780026, guid: adde9b92d643345478c8db55f16fbf9a, type: 3}
+    id: 2
+  - prefab: {fileID: 6370208376843780026, guid: 426c6f158244c894c98135159e5d8f82, type: 3}
+    id: 3
   - prefab: {fileID: 8790268461584312071, guid: 3c4c6d16c29e61f42951b46cc7bb2166, type: 3}
-    id: 100
+    id: 4
   PlayOnAwake: 0
   CellSize: 1
   UseWorldSpace: 0
