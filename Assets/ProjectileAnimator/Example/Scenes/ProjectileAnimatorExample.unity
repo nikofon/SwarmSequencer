@@ -134,7 +134,7 @@ GameObject:
   - component: {fileID: 285091637}
   - component: {fileID: 285091636}
   m_Layer: 0
-  m_Name: 2
+  m_Name: Flower
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -183,7 +183,7 @@ MonoBehaviour:
   GridSize: {x: 16, y: 16, z: 0}
   center: {x: 7.5, y: 7.5, z: 0}
   shouldDrawGrid: 1
-  DrawTragectories: 1
+  DrawTragectories: 0
   pathColors: []
 --- !u!4 &285091637
 Transform:
@@ -293,7 +293,7 @@ GameObject:
   - component: {fileID: 1078846782}
   - component: {fileID: 1078846781}
   m_Layer: 0
-  m_Name: 1
+  m_Name: Subdiviosion
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -315,12 +315,14 @@ MonoBehaviour:
   loadTimeBetweenTurns: 0
   loadTurnTimeOverrides: 0
   loadProjectileLookUps: 0
-  projectileDataAsset: {fileID: 4900000, guid: 135381c737dd64a4fb95238ecf1b40bc, type: 3}
+  projectileDataAsset: {fileID: 4900000, guid: 0266b9524ed95ae4db6a9e16629c9f22, type: 3}
   projectileLookUps:
-  - prefab: {fileID: 8790268461584312071, guid: 9f179ecffe1689844ab5590ddec42e49, type: 3}
+  - prefab: {fileID: 6370208376843780026, guid: 44df9f86a71b8dc46860d64dfc131c5d, type: 3}
     id: 1
-  - prefab: {fileID: 8790268461584312071, guid: 3c4c6d16c29e61f42951b46cc7bb2166, type: 3}
-    id: 100
+  - prefab: {fileID: 6370208376843780026, guid: adde9b92d643345478c8db55f16fbf9a, type: 3}
+    id: 2
+  - prefab: {fileID: 6370208376843780026, guid: 426c6f158244c894c98135159e5d8f82, type: 3}
+    id: 3
   PlayOnAwake: 0
   CellSize: 1
   UseWorldSpace: 0
@@ -331,10 +333,10 @@ MonoBehaviour:
   frameTimeOverrides: []
   deserializeOnAwake: 1
   batchSize: 1
-  GridSize: {x: 9, y: 9, z: 0}
-  center: {x: 4, y: 4, z: 0}
+  GridSize: {x: 16, y: 16, z: 0}
+  center: {x: 7.5, y: 7.5, z: 0}
   shouldDrawGrid: 1
-  DrawTragectories: 1
+  DrawTragectories: 0
   pathColors: []
 --- !u!4 &1078846782
 Transform:
@@ -344,9 +346,77 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1078846779}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -46.51, y: 7.67, z: 4.63}
+  m_LocalPosition: {x: -48.46, y: 7.67, z: 4.63}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1318383866
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1318383868}
+  - component: {fileID: 1318383867}
+  m_Layer: 0
+  m_Name: Cross
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1318383867
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1318383866}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6206916cb9017464da5857250acb9b76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  projectileDataScriptable: {fileID: 0}
+  loadTimeBetweenTurns: 0
+  loadTurnTimeOverrides: 0
+  loadProjectileLookUps: 0
+  projectileDataAsset: {fileID: 4900000, guid: 135381c737dd64a4fb95238ecf1b40bc, type: 3}
+  projectileLookUps:
+  - prefab: {fileID: 9207243799212085633, guid: 26a2e1ef5b1ae0b4da9ec9e2a9b4c71b, type: 3}
+    id: 1
+  - prefab: {fileID: 9207243799212085633, guid: 8d5b84f4216a88740825eb61c347b40e, type: 3}
+    id: 100
+  PlayOnAwake: 0
+  CellSize: 1
+  UseWorldSpace: 0
+  TimeBetweenFrames: 0.5
+  UnassignedObjectsHandling: 0
+  CompletedObjectsHandling: 0
+  animationType: 1
+  frameTimeOverrides: []
+  deserializeOnAwake: 1
+  batchSize: 1
+  GridSize: {x: 9, y: 9, z: 0}
+  center: {x: 4, y: 4, z: 0}
+  shouldDrawGrid: 1
+  DrawTragectories: 0
+  pathColors: []
+--- !u!4 &1318383868
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1318383866}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -66.94, y: 7.67, z: 4.63}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
