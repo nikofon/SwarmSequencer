@@ -25,8 +25,8 @@ namespace ProjectileAnimator
             order = 1;
             skipFrame = false;
             currentFrame = 0;
+            currentTime = 0;
             DisposeNativeCollections();
-            FrameDatas = null;
         }
 
         IEnumerator RunProjectileMovementEditor(float delta)

@@ -84,7 +84,7 @@ namespace ProjectileAnimator
         /// <summary>
         /// current lerp time
         /// </summary>
-        float t;
+        [SerializeField]float t;
 
         //Status variables
         /// <summary>
@@ -97,15 +97,21 @@ namespace ProjectileAnimator
         /// </summary>
         public bool Running { get => running; }
 
-        public float CurrentTime { get => currentTime; set { if (FrameDatas == null) return; 
-                int newFrame = Mathf.Clamp(DetermineFrameByTime(value), 0, FrameDatas.Count - 1); 
-                if (newFrame != currentFrame) { currentFrame = newFrame; Debug.Log(newFrame); ChangeFrame(newFrame); }
+        public float CurrentTime { get => currentTime; set { if (FrameDatas == null) return;
+                int frame = DetermineFrameByTime(value);
+                int maxFrame = FrameDatas.Count - 1;
+                int newFrame = Mathf.Clamp(frame, 0, maxFrame); 
+                if (newFrame != currentFrame || newFrame == 0) { currentFrame = newFrame; ChangeFrame(newFrame); }
                 currentTime = value;
-                t = DetermineTByTime(value); 
-                ProjectileMovement(); } }
+                t = DetermineTByTime(value);
+                if(frame < maxFrame)
+                    ProjectileMovement(); } }
         float currentTime;
 
-        public float Duration { get => CalculateDuration(); }
+        /// <summary>
+        /// Gets or sets the duration of one complete animation. If you want to set it, be sure that there is desserialized animation in use.
+        /// </summary>
+        public float Duration { get => CalculateDuration(); set {if(FrameDatas != null) TimeBetweenFrames = CalculateTimeBetweenFrames(value, FrameDatas.Count, frameTimeOverrides); } }
 
         bool paused;
 
@@ -136,7 +142,11 @@ namespace ProjectileAnimator
             Dictionary<Vector3, ProjectileKey> toInstantiate = new Dictionary<Vector3, ProjectileKey>();
             List<ProjectileKey> toRemove = new List<ProjectileKey>();
             var nextPos = FrameDatas[newTurn + order].ProjectilePositionData;
-            Debug.Log($"Changed frame from {newTurn} to {newTurn +order}");
+            foreach (var v in pos)
+            {
+                if (!projectilePositions.ContainsKey(v.Key)) toInstantiate.Add(v.Value, v.Key);
+            }
+            InstantiateProjectiles(ref toInstantiate);
             foreach (var p in projectilePositions)
             {
                 if (!nextPos.ContainsKey(p.Key)) toRemove.Add(p.Key);
@@ -150,11 +160,6 @@ namespace ProjectileAnimator
                     if (Application.isPlaying && dsplM == DisposalMode.Normal) { Destroy(trvmGO.gameObject); }
                     else DestroyImmediate(trvmGO.gameObject); }
             }
-            foreach (var v in pos)
-            {
-                if (!projectilePositions.ContainsKey(v.Key)) toInstantiate.Add(v.Value, v.Key);
-            }
-            InstantiateProjectiles(toInstantiate);
             currentPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             originalPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             targetPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
@@ -167,14 +172,13 @@ namespace ProjectileAnimator
                 i++;
             }
 
-            Debug.Log("Finished animation");
             OnFrameChanged?.Invoke(newTurn, newTurn + order);
         }
 
         public int DetermineFrameByTime(float time)
         {
             int frame = 0;
-            if(frameTimeOverrides.Count == 0)
+            if(frameTimeOverrides == null ||frameTimeOverrides.Count == 0)
             {
                 frame = Mathf.FloorToInt(time / TimeBetweenFrames);
             }
@@ -217,8 +221,7 @@ namespace ProjectileAnimator
             float t = 0;
             if (frameTimeOverrides.Count == 0)
             {
-                t = time % TimeBetweenFrames;
-                Debug.Log(t);
+                t = (time % TimeBetweenFrames) / TimeBetweenFrames;
             }
             else
             {
@@ -258,7 +261,7 @@ namespace ProjectileAnimator
         /// Instantiates given projectiles
         /// </summary>
         /// <param name="toInstantiate"> key - position, value.item1 = projectile id, value.item2 internalID</param>
-        void InstantiateProjectiles(Dictionary<Vector3, ProjectileKey> toInstantiate)
+        void InstantiateProjectiles(ref Dictionary<Vector3, ProjectileKey> toInstantiate)
         {
             foreach (var v in toInstantiate)
             {
@@ -364,6 +367,18 @@ namespace ProjectileAnimator
             thread.Start();
         }
 
+        float CalculateTimeBetweenFrames(float duration, int frameCount, List<FrameTimeOverride> frameTimeOverrides)
+        {
+            int i = 0;
+            foreach (var v in frameTimeOverrides)
+            {
+                duration -= v.value;
+                i++;
+            }
+            Debug.Log($"Duration: {duration} frameCount {frameCount} duration/count {duration / (frameCount - 1)}");
+            return duration / (frameCount - 1 - i);
+        }
+
         /// <summary>
         /// Plays or unpauses an animation
         /// </summary>
@@ -385,8 +400,8 @@ namespace ProjectileAnimator
         /// <param name="order"> if order = 1, plays animation forward, if = -1 plays animation in reverse </param>
         public void Play(int fromFrame, int order)
         {
-            if (paused) Stop();
             if (running) return;
+            if (paused) Stop();
             currentFrame = fromFrame;
             if (FrameDatas == null) FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text);
             this.order = order;
@@ -408,7 +423,7 @@ namespace ProjectileAnimator
             order = 1;
             currentFrame = 0;
             t = 0;
-            skipFrame = false;
+            currentTime = 0;
             skipFrame = false;
             DisposeNativeCollections();
         }
@@ -517,8 +532,6 @@ namespace ProjectileAnimator
                     FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text);
             if (Application.isPlaying && PlayOnAwake)
                 Play();
-            Debug.Log(DetermineFrameByTime(2.5f));
-            Debug.Log(DetermineTByTime(2.5f));
         }
 
         void DisposeNativeCollections()
