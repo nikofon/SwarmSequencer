@@ -23,6 +23,7 @@ namespace ProjectileAnimator
         SerializedProperty shouldDrawGrid;
         SerializedProperty DrawTragectories;
         SerializedProperty pathColors;
+        SerializedProperty t;
 
         ProjectileDataScriptable scriptable;
 
@@ -45,6 +46,7 @@ namespace ProjectileAnimator
             targetDriver = (ProjectileDriver)target;
 
             loadTimeBetweenTurns = serializedObject.FindProperty("loadTimeBetweenTurns");
+            t = serializedObject.FindProperty("t");
             loadTurnTimeOverrides = serializedObject.FindProperty("loadTurnTimeOverrides");
             loadProjectileLookUps = serializedObject.FindProperty("loadProjectileLookUps");
 
@@ -113,6 +115,7 @@ namespace ProjectileAnimator
             if (Application.isPlaying || !(loadData && loadProjectileLookUps.boolValue))
                 EditorGUILayout.PropertyField(projectileLookUps);
             EditorGUILayout.PropertyField(animationType);
+            EditorGUILayout.PropertyField(t);
             EditorGUILayout.PropertyField(UseWorldSpace);
             EditorGUILayout.PropertyField(CellSize);
             if (Application.isPlaying || !(loadData && loadTimeBetweenTurns.boolValue))
@@ -121,6 +124,11 @@ namespace ProjectileAnimator
                 EditorGUILayout.PropertyField(turnTimeOverrides);
             EditorGUILayout.PropertyField(CompletedObjectsHandling);
             EditorGUILayout.PropertyField(UnassignedObjectsHandling);
+            float tempTime = EditorGUILayout.Slider(targetDriver.CurrentTime, 0, targetDriver.Duration - 0.001f);
+            if(tempTime != targetDriver.CurrentTime)
+            {
+                targetDriver.CurrentTime = tempTime;
+            }
             EditorGUILayout.Space(2);
             EditorGUILayout.PropertyField(PlayOnAwake);
             showPosition = EditorGUILayout.BeginFoldoutHeaderGroup(showPosition, "Advanced");
