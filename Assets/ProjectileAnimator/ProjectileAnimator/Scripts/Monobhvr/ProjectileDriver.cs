@@ -144,7 +144,7 @@ namespace ProjectileAnimator
             var nextPos = FrameDatas[newTurn + order].ProjectilePositionData;
             foreach (var v in pos)
             {
-                if (!projectilePositions.ContainsKey(v.Key)) toInstantiate.Add(v.Value, v.Key);
+                if (!projectilePositions.ContainsKey(v.Key)) toInstantiate.Add(v.Key, v.Value);
             }
             InstantiateProjectiles(ref toInstantiate);
             foreach (var p in projectilePositions)
@@ -261,7 +261,7 @@ namespace ProjectileAnimator
         /// Instantiates given projectiles
         /// </summary>
         /// <param name="toInstantiate"> key - position, value.item1 = projectile id, value.item2 internalID</param>
-        void InstantiateProjectiles(ref Dictionary<Vector3, ProjectileKey> toInstantiate)
+        void InstantiateProjectiles(ref Dictionary<ProjectileKey, Vector3> toInstantiate)
         {
             foreach (var v in toInstantiate)
             {
@@ -375,7 +375,6 @@ namespace ProjectileAnimator
                 duration -= v.value;
                 i++;
             }
-            Debug.Log($"Duration: {duration} frameCount {frameCount} duration/count {duration / (frameCount - 1)}");
             return duration / (frameCount - 1 - i);
         }
 

@@ -13,6 +13,7 @@ namespace ProjectileAnimator
         bool useAdditionalTextures;
 
         public List<Texture2D> TextureList = new List<Texture2D>();
+        List<Texture2D> mainTextures;
         Color bgColor;
         Vector2 Center;
         List<FrameData> bakedData = new List<FrameData>();
@@ -115,11 +116,12 @@ namespace ProjectileAnimator
         void BakeTextureData() {
             bakedData.Clear();
             int i = 0;
+            mainTextures = new List<Texture2D>(TextureList);
             if (useAdditionalTextures)
             {
                 SeparateAdditionalTextures();
             }
-            foreach(Texture2D t in TextureList)
+            foreach(Texture2D t in mainTextures)
             {
                 Color[] colors = t.GetPixels();
                 var res = BakeTexture(t.width, t.height, Center.y, Center.x, i, ref colors);
@@ -128,7 +130,7 @@ namespace ProjectileAnimator
                 {
                     bakedData.Add(res);
                 }
-                bar.value = i /(float) TextureList.Count;
+                bar.value = i /(float)mainTextures.Count;
             }
             SerializeResult();
         }
@@ -163,21 +165,16 @@ namespace ProjectileAnimator
             Debug.Log("SeparatingTextures");
             string toSearch = "AdditionalTexture";
             addTextures = new Dictionary<int, Texture2D>();
-            List<Texture2D> toRemove = new List<Texture2D>();
-            foreach(var t in TextureList)
+            foreach (var t in TextureList)
             {
                 if (t.name.Contains(toSearch))
                 {
-                    toRemove.Add(t);
                     int index = 0;
+                    mainTextures.Remove(t);
                     string res = t.name.Substring(t.name.LastIndexOf("AdditionalTexture") + toSearch.Length);
                     if (int.TryParse(res, out index)) { addTextures.Add(index, t); }
                     else throw new NamingViolationException($"Can't parse {res} to int. Rename textre {t.name} following rules!");
                 }
-            }
-            foreach(var trmv in toRemove)
-            {
-                TextureList.Remove(trmv);
             }
             Debug.Log($"{addTextures.Count} textures sepatated");
         }

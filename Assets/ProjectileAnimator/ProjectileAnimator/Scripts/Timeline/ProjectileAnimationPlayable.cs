@@ -28,7 +28,7 @@ namespace ProjectileAnimator {
 
             public override void OnBehaviourPlay(Playable playable, UnityEngine.Playables.FrameData info)
             {
-                if (owner != null) { owner.ChangeAsset(asset); Debug.Log(frameTimeOverrides.Count); owner.frameTimeOverrides = frameTimeOverrides; owner.Duration = (float)playable.GetDuration(); }
+                if (owner != null) { owner.ChangeAsset(asset); owner.frameTimeOverrides = frameTimeOverrides; owner.Duration = (float)playable.GetDuration(); }
             }
 
             public override void OnBehaviourPause(Playable playable, UnityEngine.Playables.FrameData info)

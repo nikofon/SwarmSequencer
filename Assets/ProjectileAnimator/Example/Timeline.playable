@@ -22,7 +22,7 @@ MonoBehaviour:
   m_Children: []
   m_Clips:
   - m_Version: 1
-    m_Start: 0.7333333333333333
+    m_Start: 0.15
     m_ClipIn: 0
     m_Asset: {fileID: 3806645118276591585}
     m_Duration: 5
@@ -125,4 +125,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 830c04f4d6d668f48b79b8126962325f, type: 3}
   m_Name: ProjectileAnimationAsset
   m_EditorClassIdentifier: 
-  asset: {fileID: 4900000, guid: 8cca80d61d2b0bd459825620859a65b3, type: 3}
+  asset: {fileID: 4900000, guid: 135381c737dd64a4fb95238ecf1b40bc, type: 3}
+  frameTimeOverrides: []
+  driver: {fileID: 0}
