@@ -20,9 +20,9 @@ namespace ProjectileAnimator
         public ProjectileDataScriptable ProjectileDataScriptable { get => projectileDataScriptable; set => projectileDataScriptable = value; }
         [SerializeField] ProjectileDataScriptable projectileDataScriptable;
 
-        [SerializeField]bool loadTimeBetweenTurns;
-        [SerializeField]bool loadTurnTimeOverrides;
-        [SerializeField]bool loadProjectileLookUps;
+        [SerializeField] bool loadTimeBetweenTurns;
+        [SerializeField] bool loadTurnTimeOverrides;
+        [SerializeField] bool loadProjectileLookUps;
 
         [SerializeField] TextAsset projectileDataAsset;
 
@@ -60,8 +60,11 @@ namespace ProjectileAnimator
         /// <summary>
         /// Holds deserialized data that is not currently active
         /// </summary>
-        public Dictionary<string, List<FrameData>> DeserializedFrameDatas { get { if (deserializedFrameDatas == null) deserializedFrameDatas = new Dictionary<string, List<FrameData>>(); return deserializedFrameDatas; } 
-            set => deserializedFrameDatas = value; }
+        public Dictionary<string, List<FrameData>> DeserializedFrameDatas
+        {
+            get { if (deserializedFrameDatas == null) deserializedFrameDatas = new Dictionary<string, List<FrameData>>(); return deserializedFrameDatas; }
+            set => deserializedFrameDatas = value;
+        }
         Dictionary<string, List<FrameData>> deserializedFrameDatas;
 
         Dictionary<ProjectileKey, Transform> projectilePositions = new Dictionary<ProjectileKey, Transform>();
@@ -76,6 +79,7 @@ namespace ProjectileAnimator
         //Native collections
         NativeArray<Vector3> currentPositions;
         NativeArray<Vector3> originalPositions;
+        NativeArray<Vector3> bezierInterpolationPoints;
         NativeArray<Vector3> targetPositions;
 
         //Frame info
@@ -84,7 +88,7 @@ namespace ProjectileAnimator
         /// <summary>
         /// current lerp time
         /// </summary>
-        [SerializeField]float t;
+        float t;
 
         //Status variables
         /// <summary>
@@ -97,21 +101,27 @@ namespace ProjectileAnimator
         /// </summary>
         public bool Running { get => running; }
 
-        public float CurrentTime { get => currentTime; set { if (FrameDatas == null) return;
+        public float CurrentTime
+        {
+            get => currentTime; set
+            {
+                if (FrameDatas == null) return;
                 int frame = DetermineFrameByTime(value);
                 int maxFrame = FrameDatas.Count - 1;
-                int newFrame = Mathf.Clamp(frame, 0, maxFrame); 
+                int newFrame = Mathf.Clamp(frame, 0, maxFrame);
                 if (newFrame != currentFrame || newFrame == 0) { currentFrame = newFrame; ChangeFrame(newFrame); }
                 currentTime = value;
                 t = DetermineTByTime(value);
-                if(frame < maxFrame)
-                    ProjectileMovement(); } }
+                if (frame < maxFrame)
+                    ProjectileMovement();
+            }
+        }
         float currentTime;
 
         /// <summary>
         /// Gets or sets the duration of one complete animation. If you want to set it, be sure that there is desserialized animation in use.
         /// </summary>
-        public float Duration { get => CalculateDuration(); set {if(FrameDatas != null) TimeBetweenFrames = CalculateTimeBetweenFrames(value, FrameDatas.Count, frameTimeOverrides); } }
+        public float Duration { get => CalculateDuration(); set { if (FrameDatas != null) TimeBetweenFrames = CalculateTimeBetweenFrames(value, FrameDatas.Count, frameTimeOverrides); } }
 
         bool paused;
 
@@ -132,19 +142,21 @@ namespace ProjectileAnimator
         void ChangeFrame(int newTurn, DisposalMode dsplM = DisposalMode.Normal)
         {
             DisposeNativeCollections();
-            if ((order > 0 && newTurn + 1 >= FrameDatas.Count) || (order < 0 && newTurn - 1 < 0)) {
+            if ((order > 0 && newTurn + 1 >= FrameDatas.Count) || (order < 0 && newTurn - 1 < 0))
+            {
                 OnAnimationFinished?.Invoke();
-                return; }
+                return;
+            }
             t = 0;
             var timeOverride = frameTimeOverrides.Find(x => x.Equals(new FrameTimeOverride() { FrameOne = currentFrame, FrameTwo = currentFrame + order }));
             timeOverrideValue = timeOverride == null ? TimeBetweenFrames : timeOverride.value;
-            var pos = new Dictionary<ProjectileKey, SerializableVector3>(FrameDatas[newTurn].ProjectilePositionData);
+            var pos = new Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>>(FrameDatas[newTurn].ProjectilePositionData);
             Dictionary<ProjectileKey, Vector3> toInstantiate = new Dictionary<ProjectileKey, Vector3>();
             List<ProjectileKey> toRemove = new List<ProjectileKey>();
             var nextPos = FrameDatas[newTurn + order].ProjectilePositionData;
             foreach (var v in pos)
             {
-                if (!projectilePositions.ContainsKey(v.Key)) toInstantiate.Add(v.Key, v.Value);
+                if (!projectilePositions.ContainsKey(v.Key)) toInstantiate.Add(v.Key, v.Value.Item1);
             }
             InstantiateProjectiles(ref toInstantiate);
             foreach (var p in projectilePositions)
@@ -156,9 +168,15 @@ namespace ProjectileAnimator
                 var trvmGO = projectilePositions[trmv];
                 projectilePositions.Remove(trmv);
                 pos.Remove(trmv);
-                if (UnassignedObjectsHandling == UnwantedObjectsHandlingType.Destroy && trvmGO != null) {
+                if (UnassignedObjectsHandling == UnwantedObjectsHandlingType.Destroy && trvmGO != null)
+                {
                     if (Application.isPlaying && dsplM == DisposalMode.Normal) { Destroy(trvmGO.gameObject); }
-                    else DestroyImmediate(trvmGO.gameObject); }
+                    else DestroyImmediate(trvmGO.gameObject);
+                }
+            }
+            if (bezierInterpolationPoints == null)
+            {
+                bezierInterpolationPoints = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             }
             currentPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             originalPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
@@ -166,9 +184,10 @@ namespace ProjectileAnimator
             int i = 0;
             foreach (var p in pos)
             {
-                currentPositions[i] = CellSize * (Vector3)p.Value;
-                originalPositions[i] = CellSize * (Vector3)p.Value;
-                targetPositions[i] = CellSize * (Vector3)nextPos[p.Key];
+                currentPositions[i] = CellSize * (Vector3)p.Value.Item1;
+                originalPositions[i] = CellSize * (Vector3)p.Value.Item1;
+                bezierInterpolationPoints[i] = CellSize * (Vector3)p.Value.Item2;
+                targetPositions[i] = CellSize * (Vector3)nextPos[p.Key].Item1;
                 i++;
             }
 
@@ -178,16 +197,16 @@ namespace ProjectileAnimator
         public int DetermineFrameByTime(float time)
         {
             int frame = 0;
-            if(frameTimeOverrides == null ||frameTimeOverrides.Count == 0)
+            if (frameTimeOverrides == null || frameTimeOverrides.Count == 0)
             {
                 frame = Mathf.FloorToInt(time / TimeBetweenFrames);
             }
             else
             {
                 float curTime = 0;
-                for (int i = 0; i < FrameDatas.Count-1; i++)
+                for (int i = 0; i < FrameDatas.Count - 1; i++)
                 {
-                    var timeOverride = frameTimeOverrides.Find(x => x.Equals(new FrameTimeOverride { FrameOne = i, FrameTwo = i + 1}));
+                    var timeOverride = frameTimeOverrides.Find(x => x.Equals(new FrameTimeOverride { FrameOne = i, FrameTwo = i + 1 }));
                     if (timeOverride != null)
                     {
                         curTime += timeOverride.value;
@@ -226,7 +245,7 @@ namespace ProjectileAnimator
             else
             {
                 float curTime = 0;
-                for (int i = 0; i < FrameDatas.Count-1; i++)
+                for (int i = 0; i < FrameDatas.Count - 1; i++)
                 {
                     var timeOverride = frameTimeOverrides.Find(x => x.Equals(new FrameTimeOverride { FrameOne = i, FrameTwo = i + 1 }));
                     if (timeOverride != null)
@@ -234,9 +253,11 @@ namespace ProjectileAnimator
                         curTime += timeOverride.value;
                     }
                     else curTime += TimeBetweenFrames;
-                    if (time < curTime) {
+                    if (time < curTime)
+                    {
                         float overrideValue = timeOverride == null ? TimeBetweenFrames : timeOverride.value;
-                        t =(overrideValue - (curTime - time)) / overrideValue; break; }
+                        t = (overrideValue - (curTime - time)) / overrideValue; break;
+                    }
                 }
             }
             return t;
@@ -244,7 +265,7 @@ namespace ProjectileAnimator
 
         void ProjectileMovement(bool useFixedTime = false, float fixedTime = 0)
         {
-            JobHandle h = new MoveProjectiles() { transform = UseWorldSpace? Matrix4x4.identity: transform.localToWorldMatrix, positions = currentPositions, originalPositions = originalPositions, targets = targetPositions, t = t }.Schedule(currentPositions.Length, batchSize);
+            JobHandle h = new MoveProjectiles() { transform = UseWorldSpace ? Matrix4x4.identity : transform.localToWorldMatrix, positions = currentPositions, bezierInterpolationPoints = bezierInterpolationPoints, originalPositions = originalPositions, targets = targetPositions, t = t }.Schedule(currentPositions.Length, batchSize);
             h.Complete();
             int i = 0;
             foreach (var s in projectilePositions)
@@ -265,9 +286,12 @@ namespace ProjectileAnimator
         {
             foreach (var v in toInstantiate)
             {
-                var foundObj = projectileLookUps.Find(x => x.id == v.Key.ProjectilePrefabId );
-                if (foundObj == null) { Clear();
-                    throw new NoPrefabWithGivenIdFoundException($"No prefab with id {v.Key.ProjectilePrefabId} found, add prefab with this id to PrefabLookUps"); }
+                var foundObj = projectileLookUps.Find(x => x.id == v.Key.ProjectilePrefabId);
+                if (foundObj == null)
+                {
+                    Clear();
+                    throw new NoPrefabWithGivenIdFoundException($"No prefab with id {v.Key.ProjectilePrefabId} found, add prefab with this id to PrefabLookUps");
+                }
                 GameObject go = foundObj.prefab;
                 var g = Instantiate(go, v.Value, Quaternion.identity);
                 projectilePositions.Add(new ProjectileKey(v.Key.ProjectilePrefabId, v.Key.ProjectileInternalId), g.transform);
@@ -323,9 +347,9 @@ namespace ProjectileAnimator
                 LoadSettingsFromScriptableObject(settings, loadTimeBetweenFrames, loadFrameTimeOverrides, loadProjectileLookUps);
                 ChangeAsset(newAsset);
                 return true;
-            }            
+            }
         }
-   
+
 
         /// <summary>
         /// Set new animation from data
@@ -361,7 +385,8 @@ namespace ProjectileAnimator
         /// <returns></returns>
         public void DeserializeAssetToQueue(string newAssetText, string name)
         {
-            Thread thread = new Thread(new ThreadStart(() => {
+            Thread thread = new Thread(new ThreadStart(() =>
+            {
                 DeserializedFrameDatas.Add(name, FrameDataSerializer.DeserializeFrameData(newAssetText));
             }));
             thread.Start();
@@ -399,6 +424,7 @@ namespace ProjectileAnimator
         /// <param name="order"> if order = 1, plays animation forward, if = -1 plays animation in reverse </param>
         public void Play(int fromFrame, int order)
         {
+            DisposeBezierPoints();
             if (running) return;
             if (paused) Stop();
             currentFrame = fromFrame;
@@ -414,10 +440,11 @@ namespace ProjectileAnimator
         public void Stop()
         {
             running = false;
-            if(CompletedObjectsHandling == UnwantedObjectsHandlingType.Destroy) {
+            if (CompletedObjectsHandling == UnwantedObjectsHandlingType.Destroy)
+            {
                 foreach (var obj in projectilePositions)
-                    if(obj.Value != null) Destroy(obj.Value.gameObject);
-                    }
+                    if (obj.Value != null) Destroy(obj.Value.gameObject);
+            }
             projectilePositions.Clear();
             order = 1;
             currentFrame = 0;
@@ -425,6 +452,7 @@ namespace ProjectileAnimator
             currentTime = 0;
             skipFrame = false;
             DisposeNativeCollections();
+            DisposeBezierPoints();
         }
 
         public void Pause()
@@ -513,21 +541,21 @@ namespace ProjectileAnimator
         {
 
 #if UNITY_EDITOR
-            if(!Application.isPlaying) EditorApplication.playModeStateChanged += CleanUp;
+            if (!Application.isPlaying) EditorApplication.playModeStateChanged += CleanUp;
 #endif
-            if(ProjectileDataScriptable != null)
+            if (ProjectileDataScriptable != null)
             {
-                if(loadProjectileLookUps)
+                if (loadProjectileLookUps)
                     projectileLookUps = ProjectileDataScriptable.ProjectileLookUps;
-                if(loadTurnTimeOverrides)
+                if (loadTurnTimeOverrides)
                     frameTimeOverrides = ProjectileDataScriptable.FrameTimeOverrides;
-                if(loadTimeBetweenTurns)
+                if (loadTimeBetweenTurns)
                 {
                     TimeBetweenFrames = ProjectileDataScriptable.TimeBetweenFrames;
                 }
             }
             if (deserializeOnAwake)
-                if(projectileDataAsset != null)
+                if (projectileDataAsset != null)
                     FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text);
             if (Application.isPlaying && PlayOnAwake)
                 Play();
@@ -543,6 +571,12 @@ namespace ProjectileAnimator
             }
         }
 
+        void DisposeBezierPoints()
+        {
+            if (bezierInterpolationPoints.IsCreated)
+                bezierInterpolationPoints.Dispose();
+        }
+
         private void OnDisable()
         {
             Stop();
@@ -551,13 +585,15 @@ namespace ProjectileAnimator
         private void OnDestroy()
         {
             DisposeNativeCollections();
+            DisposeBezierPoints();
 #if UNITY_EDITOR
-            if(!Application.isPlaying)EditorApplication.playModeStateChanged -= CleanUp;
+            if (!Application.isPlaying) EditorApplication.playModeStateChanged -= CleanUp;
 #endif
         }
         private void OnApplicationQuit()
         {
             DisposeNativeCollections();
+            DisposeBezierPoints();
         }
         public enum AnimationTypes
         {
@@ -565,7 +601,7 @@ namespace ProjectileAnimator
             Repeat,
             Pingpong,
         }
-        
+
         /// <summary>
         /// How to handle objects that are no longer part of animation?
         /// </summary>
@@ -581,19 +617,27 @@ namespace ProjectileAnimator
             Ignore
         }
 
-        public enum DisposalMode { Normal, Immediate}
+        public enum DisposalMode { Normal, Immediate }
     }
 
     public struct MoveProjectiles : IJobParallelFor
     {
         public Matrix4x4 transform;
         public NativeArray<Vector3> positions;
-        [ReadOnly]public NativeArray<Vector3> originalPositions;
-        [ReadOnly]public NativeArray<Vector3> targets;
+        [ReadOnly] public NativeArray<Vector3> originalPositions;
+        [ReadOnly] public NativeArray<Vector3> bezierInterpolationPoints;
+        [ReadOnly] public NativeArray<Vector3> targets;
         public float t;
         public void Execute(int index)
         {
-            positions[index] = Vector3.Lerp(transform.MultiplyPoint(originalPositions[index]), transform.MultiplyPoint(targets[index]), t);
+            if (float.IsPositiveInfinity(bezierInterpolationPoints[index].x))
+            {
+                positions[index] = Vector3.Lerp(transform.MultiplyPoint(originalPositions[index]), transform.MultiplyPoint(targets[index]), t);
+            }
+            else
+            {
+                positions[index] = MathHelper.BezierInterpolation(transform.MultiplyPoint(originalPositions[index]), transform.MultiplyPoint(targets[index]), transform.MultiplyPoint(bezierInterpolationPoints[index]), t);
+            }
         }
     }
 }

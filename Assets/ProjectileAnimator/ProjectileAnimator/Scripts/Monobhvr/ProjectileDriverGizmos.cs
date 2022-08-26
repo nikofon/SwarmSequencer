@@ -28,35 +28,54 @@ namespace ProjectileAnimator
             if (FrameDatas == null) FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text);
             foreach (var data in FrameDatas)
             {
-                foreach(var pos in data.ProjectilePositionData)
+                foreach (var pos in data.ProjectilePositionData)
                 {
                     if (!res.ContainsKey(pos.Key))
                     {
                         List<Vector3> toAdd = new List<Vector3>();
-                        toAdd.Add(pos.Value);
+                        toAdd.Add(pos.Value.Item1);
+                        toAdd.Add(pos.Value.Item2);
                         res.Add(pos.Key, toAdd);
                     }
                     else
                     {
-                        res[pos.Key].Add(pos.Value);
+                        res[pos.Key].Add(pos.Value.Item1);
+                        res[pos.Key].Add(pos.Value.Item2);
                     }
                 }
             }
+            Dictionary<ProjectileKey, List<Vector3>> bezierRes = new Dictionary<ProjectileKey, List<Vector3>>();
+            foreach (var KVPair in res)
+            {
+                List<Vector3> drawPoints = new List<Vector3>();
+                for (int i = 1; i < KVPair.Value.Count - 1; i += 2)
+                {
+                    Vector3 pZero = KVPair.Value[i - 1];
+                    Vector3 pOne = KVPair.Value[i];
+                    Vector3 pTwo = KVPair.Value[i + 1];
+                    if (float.IsInfinity(pOne.x))
+                    {
+                        pOne = (-pZero + pTwo) / 2;
+                    }
+                    drawPoints.AddRange(MathHelper.BezierAproximation(pZero, pTwo, pOne));
+                }
+                bezierRes.Add(KVPair.Key, drawPoints);
+            }
 
-            positions = res;
+            positions = bezierRes;
 
-            return res;
+            return bezierRes;
         }
-       
+
         /// <summary>
         /// Editor function that draws gizmos for projectile tragectories
         /// </summary>
         void DrawPaths()
         {
-            foreach(var path in positions)
+            foreach (var path in positions)
             {
                 Nullable<Color> color = pathColors.Find(x => x.keys.Contains(path.Key))?.color;
-                GizmoHelper.DrawPath(color.HasValue ? color.Value : Gizmos.color, UseWorldSpace ? Matrix4x4.identity : transform.localToWorldMatrix, path.Value.ToArray()) ;
+                GizmoHelper.DrawPath(color.HasValue ? color.Value : Gizmos.color, UseWorldSpace ? Matrix4x4.identity : transform.localToWorldMatrix, path.Value.ToArray());
             }
         }
 
@@ -65,7 +84,7 @@ namespace ProjectileAnimator
         {
             if (shouldDrawGrid)
             {
-                GizmoHelper.DrawGrid3D(GridSize, CellSize, center, UseWorldSpace? Matrix4x4.identity: transform.localToWorldMatrix);
+                GizmoHelper.DrawGrid3D(GridSize, CellSize, center, UseWorldSpace ? Matrix4x4.identity : transform.localToWorldMatrix);
             }
             if (DrawTragectories)
             {
@@ -80,22 +99,23 @@ namespace ProjectileAnimator
         {
             Color standart = Gizmos.color;
             Gizmos.color = color;
-            for(int i = 0; i <points.Length - 1; i++)
+            for (int i = 0; i < points.Length - 1; i++)
             {
-                Gizmos.DrawLine(convert.MultiplyPoint(points[i]), convert.MultiplyPoint(points[i + 1]));
+                if (points[i] != points[i + 1])
+                    Gizmos.DrawLine(convert.MultiplyPoint(points[i]), convert.MultiplyPoint(points[i + 1]));
             }
             Gizmos.color = standart;
         }
 
-        public static void DrawGrid3D(Vector3Int gridSize, float cellSize ,Vector3 zero, Matrix4x4 convert = default)
+        public static void DrawGrid3D(Vector3Int gridSize, float cellSize, Vector3 zero, Matrix4x4 convert = default)
         {
             float halfX = gridSize.x * cellSize / 2;
             float halfY = gridSize.y * cellSize / 2;
             float halfZ = gridSize.z * cellSize / 2;
 
-            for(float z = -halfZ; z <= halfZ; z += cellSize)
+            for (float z = -halfZ; z <= halfZ; z += cellSize)
             {
-                for(float x = -halfX; x <= halfX; x += cellSize)
+                for (float x = -halfX; x <= halfX; x += cellSize)
                 {
                     Gizmos.DrawLine(convert.MultiplyPoint(new Vector3(x, -halfY, z) + zero), convert.MultiplyPoint(new Vector3(x, halfY, z) + zero));
                 }
@@ -104,9 +124,9 @@ namespace ProjectileAnimator
                     Gizmos.DrawLine(convert.MultiplyPoint(new Vector3(-halfX, y, z) + zero), convert.MultiplyPoint(new Vector3(halfX, y, z) + zero));
                 }
             }
-            for(float x = -halfX; x <= halfX; x += cellSize)
+            for (float x = -halfX; x <= halfX; x += cellSize)
             {
-                for(float y = -halfY; y <= halfY; y += cellSize)
+                for (float y = -halfY; y <= halfY; y += cellSize)
                 {
                     Gizmos.DrawLine(convert.MultiplyPoint(new Vector3(x, y, -halfZ) + zero), convert.MultiplyPoint(new Vector3(x, y, halfZ) + zero));
                 }
@@ -115,7 +135,8 @@ namespace ProjectileAnimator
     }
 
     [System.Serializable]
-    public class ProjectilePathColor {
+    public class ProjectilePathColor
+    {
         public List<ProjectileKey> keys;
         public Color color;
     }

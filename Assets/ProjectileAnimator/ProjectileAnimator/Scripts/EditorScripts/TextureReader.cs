@@ -24,7 +24,7 @@ namespace ProjectileAnimator
 
         IMGUIContainer cont;
 
-        [MenuItem("Window/ProjectileAnimator/TextureReader")]
+        [MenuItem("Window/ProjectileAnimator/TextureReader (Legacy)")]
         public static void CreateWindow()
         {
             var window = GetWindow<TextureReader>();
@@ -58,13 +58,13 @@ namespace ProjectileAnimator
             if (TextureListView.selectedIndices != null)
             {
                 float width = cont.localBound.width;
-                float height = Mathf.Clamp(cont.localBound.height/ TextureListView.selectedIndices.Count(), 0, width);
+                float height = Mathf.Clamp(cont.localBound.height / TextureListView.selectedIndices.Count(), 0, width);
                 int k = 0;
                 var sortable = TextureListView.selectedIndices.ToList();
                 sortable.Sort();
                 foreach (int i in sortable)
                 {
-                    EditorGUI.DrawPreviewTexture(new Rect( k*height * Vector2.up, new Vector2(width, height)), TextureList[i]);
+                    EditorGUI.DrawPreviewTexture(new Rect(k * height * Vector2.up, new Vector2(width, height)), TextureList[i]);
                     k++;
                 }
             }
@@ -105,15 +105,16 @@ namespace ProjectileAnimator
             {
                 var toDelete = deleteFrom.selectedIndices.ToList();
                 toDelete.Sort();
-                for(int i = toDelete.Count - 1; i >= 0; i--)
+                for (int i = toDelete.Count - 1; i >= 0; i--)
                 {
                     TextureList.RemoveAt(toDelete[i]);
                 }
-                deleteFrom.Refresh();
+                deleteFrom.Rebuild();
             }
         }
 
-        void BakeTextureData() {
+        void BakeTextureData()
+        {
             bakedData.Clear();
             int i = 0;
             mainTextures = new List<Texture2D>(TextureList);
@@ -121,23 +122,23 @@ namespace ProjectileAnimator
             {
                 SeparateAdditionalTextures();
             }
-            foreach(Texture2D t in mainTextures)
+            foreach (Texture2D t in mainTextures)
             {
                 Color[] colors = t.GetPixels();
                 var res = BakeTexture(t.width, t.height, Center.y, Center.x, i, ref colors);
                 i++;
-                if(res.ProjectilePositionData.Count != 0)
+                if (res.ProjectilePositionData.Count != 0)
                 {
                     bakedData.Add(res);
                 }
-                bar.value = i /(float)mainTextures.Count;
+                bar.value = i / (float)mainTextures.Count;
             }
             SerializeResult();
         }
 
         void DragEntered()
         {
-            bgColor = EditorGUIUtility.isProSkin? new Color32(56, 56, 56, 255): new Color32(194, 194, 194, 255);
+            bgColor = EditorGUIUtility.isProSkin ? new Color32(56, 56, 56, 255) : new Color32(194, 194, 194, 255);
             TextureListView.style.backgroundColor = new Color(1, 1, 1, 0.1f);
         }
 
@@ -151,13 +152,13 @@ namespace ProjectileAnimator
             TextureListView.style.backgroundColor = bgColor;
             foreach (var v in DragAndDrop.objectReferences)
             {
-                if(v.GetType() == typeof(Texture2D))
+                if (v.GetType() == typeof(Texture2D))
                 {
                     TextureList.Add(v as Texture2D);
                 }
             }
-            
-            TextureListView.Refresh();
+
+            TextureListView.Rebuild();
         }
 
         void SeparateAdditionalTextures()
@@ -189,7 +190,7 @@ namespace ProjectileAnimator
 
         FrameData BakeTexture(int width, int height, float heightMid, float widthMid, int index, ref Color[] colors)
         {
-            var res = new Dictionary<ProjectileKey, SerializableVector3>();
+            var res = new Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>>();
             int n = 0;
             foreach (Color c in colors)
             {
@@ -197,7 +198,7 @@ namespace ProjectileAnimator
                 {
                     if (useAdditionalTextures)
                     {
-                        if(Mathf.RoundToInt(c.a * 255) != 255)
+                        if (Mathf.RoundToInt(c.a * 255) != 255)
                         {
                             Debug.Log($"calling bakedata from additional texture for color {c}, pos {n % width} {n / height}");
                             BakeDataFromAdditionalTexture(Mathf.RoundToInt(c.a * 255), n % width, n / height, heightMid, widthMid, ref res);
@@ -205,8 +206,8 @@ namespace ProjectileAnimator
                     }
                     var key = new ProjectileKey(Mathf.RoundToInt(c.r * 255), Mathf.RoundToInt(c.g * 255));
                     if (res.ContainsKey(key))
-                        throw new InstanceConflictException($"Texture already contains pixel with values {Mathf.RoundToInt(c.r * 255)} {Mathf.RoundToInt(c.g * 255)} at {n % width} {n / height}. Previous pixel with the same key is at {res[key].x + widthMid} {res[key].y + heightMid}");
-                    res.Add(key, new SerializableVector3(n % width - widthMid, n / height - heightMid, c.b * 255 - 127));
+                        throw new InstanceConflictException($"Texture already contains pixel with values {Mathf.RoundToInt(c.r * 255)} {Mathf.RoundToInt(c.g * 255)} at {n % width} {n / height}. Previous pixel with the same key is at {res[key].Item1.x + widthMid} {res[key].Item1.y + heightMid}");
+                    res.Add(key, new Tuple<SerializableVector3, SerializableVector3>(new SerializableVector3(n % width - widthMid, n / height - heightMid, c.b * 255 - 127), SerializableVector3.Infinity));
                 }
                 n++;
             }
@@ -214,19 +215,20 @@ namespace ProjectileAnimator
             return new FrameData(res, index);
         }
 
-        void BakeDataFromAdditionalTexture(int textureNumber , int width, int height, float heightMid, float widthMid, ref Dictionary<ProjectileKey, SerializableVector3> res)
+        void BakeDataFromAdditionalTexture(int textureNumber, int width, int height, float heightMid, float widthMid, ref Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>> res)
         {
             if (!addTextures.ContainsKey(textureNumber)) { throw new KeyNotFoundException($"Can't find additional texture with id {textureNumber}"); }
             var t = addTextures[textureNumber];
             Color c = t.GetPixel(width, height);
             var key = new ProjectileKey(Mathf.RoundToInt(c.r * 255), Mathf.RoundToInt(c.g * 255));
             if (res.ContainsKey(key))
-                throw new InstanceConflictException($"Texture already contains pixel with values {Mathf.RoundToInt(c.r * 255)} {Mathf.RoundToInt(c.g * 255)} at {width} {height}. Previous pixel with the same key is at {res[key].x + widthMid} {res[key].y + heightMid}");
-            res.Add(key, new SerializableVector3(width - widthMid, height - heightMid, c.b * 255 - 127));
+                throw new InstanceConflictException($"Texture already contains pixel with values {Mathf.RoundToInt(c.r * 255)} {Mathf.RoundToInt(c.g * 255)} at {width} {height}. Previous pixel with the same key is at {res[key].Item1.x + widthMid} {res[key].Item1.y + heightMid}");
+            res.Add(key, new Tuple<SerializableVector3, SerializableVector3>(new SerializableVector3(width - widthMid, height - heightMid, c.b * 255 - 127), SerializableVector3.Infinity));
             if (Mathf.RoundToInt(c.a * 255) != 255)
             {
                 if (textureNumber == c.a) { throw new SelfReferencingLoopException($"Texture {textureNumber} is pointing to itself at {width} & {height}"); }
-                else {
+                else
+                {
                     Debug.Log($"Calling bake data from additional texture for color {c}");
                     BakeDataFromAdditionalTexture(Mathf.RoundToInt(c.a * 255), width, height, heightMid, widthMid, ref res);
                 }

@@ -1,0 +1,39 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
+    <ui:VisualElement name="FrameInfo" style="height: 93px; border-left-width: 0; border-right-width: 0; border-top-width: 0; border-bottom-width: 0;">
+        <ui:Label text="Frame Info" display-tooltip-when-elided="true" style="height: 21px; font-size: 16px; -unity-font-style: bold; -unity-text-align: upper-center; -unity-text-outline-width: 0; border-left-width: 0; border-right-width: 0; border-top-width: 0; border-bottom-width: 2px; border-bottom-color: rgb(152, 152, 152); color: rgb(255, 255, 255);" />
+        <ui:VisualElement style="height: 93px; flex-direction: row; justify-content: space-between;">
+            <ui:VisualElement style="width: 94px; border-left-width: 2px; border-right-width: 2px; border-top-width: 0; border-bottom-width: 0; border-left-color: rgb(105, 166, 101); border-right-color: rgb(105, 166, 101); border-top-color: rgb(105, 166, 101); border-bottom-color: rgb(105, 166, 101); justify-content: flex-start;">
+                <ui:Label text="Current Frame:" display-tooltip-when-elided="true" style="margin-left: 1px; margin-right: 1px; margin-top: 1px; margin-bottom: 1px; color: rgb(255, 255, 255); white-space: normal; font-size: 10px;" />
+                <ui:Label text="0" display-tooltip-when-elided="true" name="CurrentFrameCounter" style="height: 55px; justify-content: flex-start; -unity-text-align: middle-center; font-size: 30px;" />
+            </ui:VisualElement>
+            <ui:VisualElement style="width: 401px; justify-content: space-between; align-items: stretch; flex-grow: 1; flex-direction: row;">
+                <ui:SliderInt picking-mode="Ignore" label="Change current frame" value="0" high-value="100" show-input-field="false" style="flex-direction: column; justify-content: flex-start; align-items: flex-start; flex-shrink: 1; flex-grow: 1; flex-wrap: nowrap; margin-left: 4px; margin-right: 4px; margin-top: 4px; margin-bottom: 4px; font-size: 15px; background-color: rgba(0, 0, 0, 0);" />
+                <ui:VisualElement style="align-items: stretch; justify-content: space-around; height: auto;">
+                    <uie:ToolbarButton text="Add frame" display-tooltip-when-elided="true" style="align-items: stretch; flex-grow: 1; -unity-text-align: middle-center; -unity-background-image-tint-color: rgba(0, 255, 53, 255); background-color: rgba(47, 130, 0, 255); justify-content: space-between;" />
+                    <uie:ToolbarButton text="Delete Frame" display-tooltip-when-elided="true" style="flex-grow: 1; align-items: auto; -unity-text-align: middle-left; background-color: rgba(132, 0, 0, 255); flex-wrap: nowrap; white-space: normal;" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement style="width: 94px; border-left-width: 2px; border-right-width: 2px; border-top-width: 0; border-bottom-width: 0; border-left-color: rgb(105, 166, 101); border-right-color: rgb(105, 166, 101); border-top-color: rgb(105, 166, 101); border-bottom-color: rgb(105, 166, 101);">
+                <ui:Label text="Last Frame:" display-tooltip-when-elided="true" style="margin-left: 1px; margin-right: 1px; margin-top: 1px; margin-bottom: 1px; color: rgb(255, 255, 255); white-space: normal;" />
+                <ui:Label text="0" display-tooltip-when-elided="true" name="CurrentFrameCounter" style="height: 53px; justify-content: flex-start; -unity-text-align: middle-center; font-size: 30px;" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement name="GridSettings" style="height: 89px;">
+        <ui:Label text="Grid" display-tooltip-when-elided="true" style="height: 23px; white-space: nowrap; -unity-text-align: middle-center; font-size: 16px; -unity-font-style: bold; color: rgb(255, 255, 255); border-top-width: 2px; border-left-color: rgb(152, 152, 152); border-right-color: rgb(152, 152, 152); border-top-color: rgb(152, 152, 152); border-bottom-color: rgb(152, 152, 152); border-bottom-width: 2px;" />
+        <ui:VisualElement style="flex-direction: row; align-items: stretch; justify-content: space-between; height: 63px; flex-grow: 1;">
+            <ui:VisualElement style="align-items: stretch; justify-content: space-between; flex-grow: 1; width: auto; flex-shrink: 0; border-right-width: 1px; border-left-color: rgba(255, 255, 255, 255); border-right-color: rgba(255, 255, 255, 255); border-top-color: rgba(255, 255, 255, 255); border-bottom-color: rgba(255, 255, 255, 255);">
+                <uie:Vector3Field label="Center" style="justify-content: space-between; align-items: stretch; flex-direction: row; width: auto; margin-right: 25px;" />
+                <uie:FloatField label="Cell size" value="42.2" />
+            </ui:VisualElement>
+            <ui:VisualElement style="align-items: stretch; justify-content: space-between; flex-grow: 1; width: auto; flex-direction: column; flex-shrink: 0; border-left-width: 1px; border-left-color: rgba(255, 255, 255, 255); border-right-color: rgba(255, 255, 255, 255); border-top-color: rgba(255, 255, 255, 255); border-bottom-color: rgba(255, 255, 255, 255);">
+                <uie:Vector3Field label="Grid size" style="flex-direction: row; align-items: stretch; justify-content: flex-start; width: auto; flex-wrap: nowrap; flex-grow: 0; margin-left: 25px;" />
+                <ui:SliderInt picking-mode="Ignore" label="Y level" value="0" high-value="100" show-input-field="true" style="flex-direction: column; justify-content: flex-end; align-items: stretch; margin-left: 0; margin-right: 0; margin-top: 0; margin-bottom: 0;" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:Foldout text="Projectile Keys" value="true" style="height: 257px;">
+        <ui:ScrollView style="height: 236px;" />
+    </ui:Foldout>
+    <ui:Button text="Save" display-tooltip-when-elided="true" enable-rich-text="true" />
+</ui:UXML>

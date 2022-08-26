@@ -21,7 +21,6 @@ namespace ProjectileAnimator {
                 }
                 if (owner == null) return;
 
-                //   Debug.Log($"Time: {playable.GetTime()} deltaTime {Time.deltaTime}");
                 owner.CurrentTime = (float)playable.GetTime();
  
             }
@@ -36,7 +35,6 @@ namespace ProjectileAnimator {
 #if UNITY_EDITOR
                 if (owner != null && info.effectivePlayState == PlayState.Paused) 
                 {
-                    Debug.Log("Stopped called");
                     if (Application.isPlaying) owner.Stop();
                     else owner.StopAnimationEditor();
                 }
@@ -52,7 +50,6 @@ namespace ProjectileAnimator {
 #if UNITY_EDITOR
                 if (owner != null)
                 {
-                    Debug.Log("Stopped called");
                     if (Application.isPlaying) owner.Stop();
                     else owner.StopAnimationEditor();
                 }
