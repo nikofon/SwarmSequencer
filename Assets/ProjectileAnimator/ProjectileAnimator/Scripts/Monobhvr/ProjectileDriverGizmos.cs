@@ -113,6 +113,8 @@ namespace ProjectileAnimator
             float halfY = gridSize.y * cellSize / 2;
             float halfZ = gridSize.z * cellSize / 2;
 
+            if (cellSize == 0) return;
+
             for (float z = -halfZ; z <= halfZ; z += cellSize)
             {
                 for (float x = -halfX; x <= halfX; x += cellSize)
