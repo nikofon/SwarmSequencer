@@ -11,19 +11,36 @@ namespace ProjectileAnimator
     public class SequenceCreator : EditorWindow
     {
 
-        Vector3 zero;
-        Vector2Int gridSize;
+        SerializedObject so;
 
+        //Grid params
+        [SerializeField]
+        Vector3 gridOrigin = Vector3.zero;
+        [SerializeField]
+        Quaternion gridRotation = Quaternion.identity;
+        [SerializeField]
+        float gridCellSize = 1f;
+        Vector2Int gridDimensions = new Vector2Int(2, 2);
+        int GridYLevel = 0;
+
+        Grid grid;
+
+        SerializedProperty gridOriginSerialized;
+        SerializedProperty gridRotationSerialized;
+        SerializedProperty gridUniformScaleSerialized;
+
+        //Projectile Info
         List<ProjectileKey> ProjectileKeys = new List<ProjectileKey>();
         List<FrameData> GeneratedFrameDatas = new List<FrameData>();
+
+        Nullable<ProjectileKey> selectedProjectileKey;
+
         int currentFrame;
 
-        public enum Orientation
-        {
-            XY, XZ
-        }
-
-        public Orientation orientation;
+        //Visual Elements
+        SliderInt YLevelSlider;
+        Vector2IntField GridSizeField;
+        event Action<int, int> OnFrameChanged;
 
         [MenuItem("/Window/ProjectileAnimator/SequenceCreator")]
         private static void ShowWindow()
@@ -36,10 +53,38 @@ namespace ProjectileAnimator
 
         private void OnEnable()
         {
+            //setup
+            so = new SerializedObject(this);
             VisualTreeAsset origin = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/ProjectileAnimator/ProjectileAnimator/UIDocuments/UXML/SequenceCreatorUXML.uxml");
             TemplateContainer container = origin.CloneTree();
             rootVisualElement.Add(container);
+            //ValueChange bindings
+            YLevelSlider = rootVisualElement.Q<SliderInt>("YLevelSlider");
+            YLevelSlider.RegisterValueChangedCallback((v) => { GridYLevel = v.newValue; SceneView.RepaintAll(); });
+            GridSizeField = rootVisualElement.Q<Vector2IntField>("GridSize");
+            GridSizeField.RegisterValueChangedCallback((v) =>
+            {
+                gridDimensions.x = Mathf.Max(2, v.newValue.x);
+                gridDimensions.y = Mathf.Max(2, v.newValue.y);
+                GridSizeField.value = gridDimensions;
+            });
+            //Serialized properties
+            gridOriginSerialized = so.FindProperty("gridOrigin");
+            gridRotationSerialized = so.FindProperty("gridRotation");
+            gridUniformScaleSerialized = so.FindProperty("gridCellSize");
+
+            grid = new Grid(gridDimensions, gridCellSize, gridOrigin, gridRotation);
+
+            SceneView.duringSceneGui += DuringSceneGUI;
         }
+
+        void ChangeCurrentFrame(int changeTo)
+        {
+            int oldFrame = currentFrame;
+            currentFrame = changeTo;
+            OnFrameChanged?.Invoke(oldFrame, changeTo);
+        }
+
 
         void AddProjectileInfoToFrame(int frameCount, ProjectileKey key, SerializableVector3 position, SerializableVector3 bezierControl)
         {
@@ -95,16 +140,51 @@ namespace ProjectileAnimator
             }
         }
 
-        void DrawGrid(Vector2Int gridSize, float cellSize, float yLevel, Vector3 zero)
+        void DrawGrid(Vector2Int gridSize, float cellSize, float yLevel, Vector3 zero, Quaternion gridRotation)
         {
-            Vector3 actualZero = orientation == Orientation.XY ? new Vector3(zero.x, zero.y, zero.z + yLevel * cellSize) : new Vector3(zero.x, zero.y + yLevel * cellSize, zero.z);
-            Vector3Int actualGridSize = orientation == Orientation.XY ? (Vector3Int)gridSize : new Vector3Int(gridSize.x, 0, gridSize.y);
-            GizmoHelper.DrawGrid3D(actualGridSize, cellSize, actualZero);
+            Vector3 localZero = new Vector3(zero.x, zero.y, zero.z);
+            var TRSMatrix = Matrix4x4.TRS(localZero, gridRotation, Vector3.one);
+            /*
+            Vector3 localForward = TRSMatrix * (yLevel * cellSize * Vector3.forward);
+            localZero += localForward;
+            TRSMatrix = Matrix4x4.TRS(localZero, gridRotation, Vector3.one);
+            */
+            TRSMatrix *= Matrix4x4.Translate(yLevel * cellSize * Vector3.forward);
+            GizmoHelper.DrawGrid3DWithHandles((Vector3Int)gridSize, cellSize, Vector3.zero, TRSMatrix);
         }
+
+        void DuringSceneGUI(SceneView sceneView)
+        {
+            Vector3 gridZero = this.gridOrigin;
+            Quaternion gridRotation = this.gridRotation;
+            float gridUniformScale = this.gridCellSize;
+            Handles.TransformHandle(ref gridZero, ref gridRotation, ref gridUniformScale);
+            so.Update();
+            gridRotationSerialized.quaternionValue = gridRotation;
+            gridOriginSerialized.vector3Value = gridZero;
+            gridUniformScaleSerialized.floatValue = gridUniformScale;
+            so.ApplyModifiedProperties();
+            if (grid.GridRotation != this.gridRotation || grid.GridOrigin != this.gridOrigin + GridYLevel * Vector3.forward || grid.CellSize != this.gridCellSize || grid.GridSize != gridDimensions)
+            {
+                grid = new Grid(gridDimensions, gridCellSize, gridOrigin + GridYLevel * Vector3.forward, gridRotation);
+            }
+            if (Event.current.type == EventType.Repaint)
+            {
+                GizmoHelper.DrawGridWithHandles(grid);
+                //DrawGrid(gridSize, gridUniformScale, GridYLevel, gridZero, gridRotation);
+            }
+
+        }
+
 
         private void OnGUI()
         {
 
+        }
+
+        private void OnDisable()
+        {
+            SceneView.duringSceneGui -= DuringSceneGUI;
         }
     }
 }

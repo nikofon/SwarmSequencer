@@ -84,54 +84,11 @@ namespace ProjectileAnimator
         {
             if (shouldDrawGrid)
             {
-                GizmoHelper.DrawGrid3D(GridSize, CellSize, center, UseWorldSpace ? Matrix4x4.identity : transform.localToWorldMatrix);
+                GizmoHelper.DrawGrid3DWithHandles(GridSize, CellSize, center, UseWorldSpace ? Matrix4x4.identity : transform.localToWorldMatrix);
             }
             if (DrawTragectories)
             {
                 DrawPaths();
-            }
-        }
-    }
-
-    public static class GizmoHelper
-    {
-        public static void DrawPath(Color color, Matrix4x4 convert, params Vector3[] points)
-        {
-            Color standart = Gizmos.color;
-            Gizmos.color = color;
-            for (int i = 0; i < points.Length - 1; i++)
-            {
-                if (points[i] != points[i + 1])
-                    Gizmos.DrawLine(convert.MultiplyPoint(points[i]), convert.MultiplyPoint(points[i + 1]));
-            }
-            Gizmos.color = standart;
-        }
-
-        public static void DrawGrid3D(Vector3Int gridSize, float cellSize, Vector3 zero, Matrix4x4 convert = default)
-        {
-            float halfX = gridSize.x * cellSize / 2;
-            float halfY = gridSize.y * cellSize / 2;
-            float halfZ = gridSize.z * cellSize / 2;
-
-            if (cellSize == 0) return;
-
-            for (float z = -halfZ; z <= halfZ; z += cellSize)
-            {
-                for (float x = -halfX; x <= halfX; x += cellSize)
-                {
-                    Gizmos.DrawLine(convert.MultiplyPoint(new Vector3(x, -halfY, z) + zero), convert.MultiplyPoint(new Vector3(x, halfY, z) + zero));
-                }
-                for (float y = -halfY; y <= halfY; y += cellSize)
-                {
-                    Gizmos.DrawLine(convert.MultiplyPoint(new Vector3(-halfX, y, z) + zero), convert.MultiplyPoint(new Vector3(halfX, y, z) + zero));
-                }
-            }
-            for (float x = -halfX; x <= halfX; x += cellSize)
-            {
-                for (float y = -halfY; y <= halfY; y += cellSize)
-                {
-                    Gizmos.DrawLine(convert.MultiplyPoint(new Vector3(x, y, -halfZ) + zero), convert.MultiplyPoint(new Vector3(x, y, halfZ) + zero));
-                }
             }
         }
     }
