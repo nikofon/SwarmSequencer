@@ -66,28 +66,28 @@ namespace ProjectileAnimator
             m_worldPositions = RecalculatePositions(points, Matrix4x4.TRS(GridOrigin, GridRotation, CellSize * Vector3.one));
         }
 
+        public Grid(Vector2Int gridSize, Matrix4x4 TRS)
+        {
+            m_transformMatrix = TRS;
+            GridSize = gridSize;
+            m_gridOrigin = TRS.MultiplyPoint3x4(Vector3.zero);
+            m_gridRotation = TRS.rotation;
+            m_cellSize = TRS.lossyScale.x;
+            m_worldPositions = RecalculatePositions(points, TRS);
+        }
+
         Vector3[] ResizeGrid(Vector2Int gridSize, Matrix4x4 TRS)
         {
             Vector3[] points = new Vector3[(gridSize.x + 1) * (gridSize.y + 1)];
             int n = 0;
-            Debug.Log($"Resizing grid to size {gridSize}");
-            for (float i = -gridSize.x / 2; i <= gridSize.x / 2; i++)
+            for (float i = -gridSize.x / 2f; i <= gridSize.x / 2f; i++)
             {
-                for (float j = -gridSize.y / 2; j <= gridSize.y / 2; j++)
+                for (float j = -gridSize.y / 2f; j <= gridSize.y / 2f; j++)
                 {
                     points[n] = new Vector3(i, j);
-                    Debug.Log($"Adding point {i} {j} to index {n}");
                     n++;
                 }
             }
-            /*
-            n = 0;
-            foreach (var p in points)
-            {
-                Debug.Log(p);
-                n++;
-            }
-            */
             return points;
         }
 

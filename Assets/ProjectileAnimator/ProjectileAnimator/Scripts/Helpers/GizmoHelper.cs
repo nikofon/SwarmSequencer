@@ -48,7 +48,7 @@ namespace ProjectileAnimator
 
         public static void DrawGridWithHandles(Grid grid)
         {
-            for (int i = 0; i <= grid.WorldPositions.Length - grid.GridSize.y; i++)
+            for (int i = 0; i < grid.WorldPositions.Length; i++)
             {
                 if (i + 1 < grid.WorldPositions.Length && (i + 1) % (grid.GridSize.y + 1) != 0)
                 {
