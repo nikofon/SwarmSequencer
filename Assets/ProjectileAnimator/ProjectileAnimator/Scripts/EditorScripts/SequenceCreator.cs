@@ -24,6 +24,10 @@ namespace ProjectileAnimator
         Vector3Int gridDimensions = new Vector3Int(2, 2, 2);
         int GridYLevel = 0;
 
+        Dictionary<int, Vector3[]> gridPointsScreenPosition;
+
+        bool modifyingGridInSceneView;
+
         Grid grid;
 
         SerializedProperty gridOriginSerialized;
@@ -33,18 +37,43 @@ namespace ProjectileAnimator
         //Projectile Info
         List<ProjectileKey> ProjectileKeys = new List<ProjectileKey>();
         List<FrameData> GeneratedFrameDatas = new List<FrameData>();
+        FrameData selectedFrameData;
 
-        Nullable<ProjectileKey> selectedProjectileKey;
+        public ProjectileInstanceGUI SelectedProjectileInstance { get; private set; }
 
         int currentFrame;
 
         //Visual Elements
+        IMGUIContainer selectedProjectilePreview;
+        IntegerField projectileGroupIntField;
         SliderInt YLevelSlider;
         Vector3IntField GridSizeField;
         Vector3Field GridOriginField;
         Vector3Field GridRotationField;
-        FloatField CellSizeField;
+        FloatField gridCellSizeField;
+        Color editGridOffButtonColor = new Color(0.7372549f, 0.1529412f, 0.1882353f);
+        Color editGridOnButtonColor = new Color(0.1529412f, 0.7372549f, 0.2303215f);
+
+        ScrollView projectileGroupScrollView;
+
+        VisualTreeAsset projectileContainerPrefab;
+        VisualTreeAsset projectileInstancePrefab;
+
+        Matrix4x4 sceneCameraMatrix;
+
+        Dictionary<int, ProjectileGroupUI> projectileGroupContainerDict = new Dictionary<int, ProjectileGroupUI>();
+
+        //Selected projectile info
+
+        Label SelectedProjectileGroupLabel;
+        Label SelectedProjectileInstanceLabel;
+        ColorField SelectedProjectileInstanceColorField;
+        ObjectField SelectedProjectilePrefabField;
+        GameObject selectedInstancePrefab;
+        Editor selectedInstancePrefabEditor;
+
         event Action<int, int> OnFrameChanged;
+
 
         [MenuItem("/Window/ProjectileAnimator/SequenceCreator")]
         private static void ShowWindow()
@@ -61,11 +90,13 @@ namespace ProjectileAnimator
             so = new SerializedObject(this);
             VisualTreeAsset origin = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/ProjectileAnimator/ProjectileAnimator/UIDocuments/UXML/SequenceCreatorUXML.uxml");
             TemplateContainer container = origin.CloneTree();
+            container.style.flexGrow = 1;
             rootVisualElement.Add(container);
             //Serialized properties
             gridOriginSerialized = so.FindProperty("gridOrigin");
             gridRotationSerialized = so.FindProperty("gridRotation");
             gridCellSizeSerialized = so.FindProperty("gridCellSize");
+            #region GridSettings
             //ValueChange bindings
             YLevelSlider = rootVisualElement.Q<SliderInt>("YLevelSlider");
             YLevelSlider.RegisterValueChangedCallback((v) => { GridYLevel = v.newValue; SceneView.RepaintAll(); });
@@ -82,33 +113,30 @@ namespace ProjectileAnimator
                 GridSizeField.value = gridDimensions;
                 SceneView.RepaintAll();
             });
-
             GridRotationField = rootVisualElement.Q<Vector3Field>("GridRotationField");
             GridRotationField.value = gridRotation.eulerAngles;
             GridRotationField.RegisterValueChangedCallback((v) =>
             {
-                //Debug.Log($"new value: {v.newValue} grid rotation: {gridRotation.eulerAngles} Distance: {Vector3.Distance(v.newValue, gridRotation.eulerAngles)}");
+                Debug.Log($"new value: {v.newValue} grid rotation: {gridRotation.eulerAngles} Distance: {Vector3.Distance(v.newValue, gridRotation.eulerAngles)}");
                 so.Update();
                 gridRotationSerialized.quaternionValue = Quaternion.Euler(v.newValue);
                 so.ApplyModifiedProperties();
                 SceneView.RepaintAll();
             });
 
-            CellSizeField = rootVisualElement.Q<FloatField>("CellSizeField");
-            CellSizeField.value = gridCellSize;
-            CellSizeField.TrackPropertyValue(gridCellSizeSerialized, (a) => CellSizeField.value = a.floatValue);
-            CellSizeField.RegisterValueChangedCallback((v) =>
+            gridCellSizeField = rootVisualElement.Q<FloatField>("CellSizeField");
+            gridCellSizeField.value = gridCellSize;
+            gridCellSizeField.RegisterValueChangedCallback((v) =>
             {
                 so.Update();
                 gridCellSizeSerialized.floatValue = MathF.Max(0.0001f, v.newValue);
                 so.ApplyModifiedProperties();
-                CellSizeField.value = gridCellSizeSerialized.floatValue;
+                gridCellSizeField.value = gridCellSizeSerialized.floatValue;
                 SceneView.RepaintAll();
             });
 
             GridOriginField = rootVisualElement.Q<Vector3Field>("GridOriginField");
             GridOriginField.value = gridOrigin;
-            GridOriginField.TrackPropertyValue(gridOriginSerialized, (a) => GridOriginField.value = a.vector3Value);
             GridOriginField.RegisterValueChangedCallback((v) =>
             {
                 so.Update();
@@ -118,11 +146,130 @@ namespace ProjectileAnimator
             });
             grid = new Grid((Vector2Int)gridDimensions, gridCellSize, gridOrigin, gridRotation);
 
+            var tb = rootVisualElement.Q<ToolbarButton>("EnableGridEditingButton");
+            tb.clicked += () => { modifyingGridInSceneView = !modifyingGridInSceneView; tb.style.backgroundColor = modifyingGridInSceneView ? editGridOnButtonColor : editGridOffButtonColor; SceneView.RepaintAll(); };
+
+            #endregion
+            projectileContainerPrefab = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/ProjectileAnimator/ProjectileAnimator/UIDocuments/UXML/ProjectileGroup.uxml");
+            projectileInstancePrefab = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/ProjectileAnimator/ProjectileAnimator/UIDocuments/UXML/ProjectileInstance.uxml");
+
+            projectileGroupScrollView = rootVisualElement.Q<ScrollView>("ProjectileGroupsScrollView");
+
+            SelectedProjectileGroupLabel = rootVisualElement.Q<Label>("GroupIndexCounter");
+            SelectedProjectileInstanceLabel = rootVisualElement.Q<Label>("InstanceIndexCounter");
+            SelectedProjectileInstanceColorField = rootVisualElement.Q<ColorField>("SelectedProjectileColorField");
+            SelectedProjectileInstanceColorField.RegisterValueChangedCallback((v) =>
+            {
+                if (SelectedProjectileInstance != null)
+                {
+                    SelectedProjectileInstance.trailColor = v.newValue;
+                    SelectedProjectileInstance.trailColorField.value = v.newValue;
+                }
+            });
+            SelectedProjectilePrefabField = rootVisualElement.Q<ObjectField>("SelectedInstancePrefabField");
+            SelectedProjectilePrefabField.RegisterValueChangedCallback((v) =>
+            {
+                if (SelectedProjectileInstance == null) return;
+                projectileGroupContainerDict[SelectedProjectileInstance.projectileInstanceID.ProjectilePrefabId].ChangePrefab((GameObject)v.newValue);
+            });
+            rootVisualElement.Q<Button>("ClearInstanceSelectionButton").clicked += () => SelectProjectileInstance(null);
+            projectileGroupIntField = rootVisualElement.Q<IntegerField>("ProjectileGroupIndexField");
+            projectileGroupIntField.RegisterValueChangedCallback((v) =>
+            {
+                if (projectileGroupContainerDict.ContainsKey(v.newValue))
+                {
+                    Debug.LogWarning("Projectile group with this index already exists!");
+                    projectileGroupIntField.value = v.previousValue;
+                }
+            }
+            );
+            rootVisualElement.Q<Button>("AddProjectileGroupButton").clicked += () =>
+            {
+                AddNewProjectileGroupContainer(projectileGroupIntField.value);
+                int newProjInd = FindFreeProjectileGroupIndex();
+                projectileGroupIntField.value = newProjInd;
+            };
+
+            selectedProjectilePreview = rootVisualElement.Q<IMGUIContainer>("selectedProjectilePreview");
+
+            selectedProjectilePreview.onGUIHandler += ProjectileAssetPreviewIMGUI;
+
             SceneView.duringSceneGui += DuringSceneGUI;
+
+            CreateNewFrame(0, new Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>>());
+            SelectFrame(0);
         }
 
+        void ProjectileAssetPreviewIMGUI()
+        {
 
+            if (selectedInstancePrefab != null)
+            {
 
+                selectedInstancePrefabEditor.OnInteractivePreviewGUI(GUILayoutUtility.GetRect(150, 150), null);
+            }
+
+        }
+
+        public void SelectProjectileInstance(ProjectileInstanceGUI instance)
+        {
+            UpdateSelectedInstanceUI(instance);
+            SelectedProjectileInstance = instance;
+        }
+
+        public void UpdateSelectedInstanceUI()
+        {
+            UpdateSelectedInstanceUI(SelectedProjectileInstance);
+        }
+
+        void UpdateSelectedInstanceUI(ProjectileInstanceGUI selected)
+        {
+            if (SelectedProjectileInstance != null)
+            {
+                foreach (var v in SelectedProjectileInstance.borderElements)
+                {
+                    v.style.borderTopColor = ProjectileInstanceGUI.NORMAL_BORDER_COLOR;
+                    v.style.borderLeftColor = ProjectileInstanceGUI.NORMAL_BORDER_COLOR;
+                    v.style.borderBottomColor = ProjectileInstanceGUI.NORMAL_BORDER_COLOR;
+                    v.style.borderRightColor = ProjectileInstanceGUI.NORMAL_BORDER_COLOR;
+                }
+            }
+            if (selected == null)
+            {
+                if (SelectedProjectileInstance == null) return;
+                SelectedProjectileGroupLabel.text = "-";
+                SelectedProjectileInstanceLabel.text = "-";
+                SelectedProjectileInstanceColorField.value = Color.black;
+                selectedInstancePrefab = null;
+                selectedInstancePrefabEditor = null;
+                SelectedProjectilePrefabField.value = null;
+                return;
+            }
+            SelectedProjectileGroupLabel.text = selected.projectileInstanceID.ProjectilePrefabId.ToString();
+            SelectedProjectileInstanceLabel.text = selected.projectileInstanceID.ProjectileInstanceID.ToString();
+            SelectedProjectileInstanceColorField.value = selected.trailColor;
+            SelectedProjectilePrefabField.value = selected.parent.prefab;
+            selectedInstancePrefab = selected.parent.prefab;
+            selectedInstancePrefabEditor = Editor.CreateEditor(selectedInstancePrefab);
+            foreach (var v in selected.borderElements)
+            {
+                v.style.borderTopColor = ProjectileInstanceGUI.SELECTED_BORDER_COLOR;
+                v.style.borderLeftColor = ProjectileInstanceGUI.SELECTED_BORDER_COLOR;
+                v.style.borderBottomColor = ProjectileInstanceGUI.SELECTED_BORDER_COLOR;
+                v.style.borderRightColor = ProjectileInstanceGUI.SELECTED_BORDER_COLOR;
+            }
+
+        }
+
+        int FindFreeProjectileGroupIndex()
+        {
+            int newProjInd = 0;
+            while (projectileGroupContainerDict.ContainsKey(newProjInd))
+            {
+                newProjInd++;
+            }
+            return newProjInd;
+        }
         void ChangeCurrentFrame(int changeTo)
         {
             int oldFrame = currentFrame;
@@ -130,20 +277,67 @@ namespace ProjectileAnimator
             OnFrameChanged?.Invoke(oldFrame, changeTo);
         }
 
+        void SelectFrame(int frameIndex)
+        {
+            var newSelectedFrameData = GeneratedFrameDatas.Find(x => x.Order == frameIndex);
+            if (newSelectedFrameData != null) selectedFrameData = newSelectedFrameData;
+            else Debug.LogWarning("You are trying to select a frame that doesn't exist");
+        }
 
 
         void AddProjectileInfoToFrame(int frameCount, ProjectileKey key, SerializableVector3 position, SerializableVector3 bezierControl)
         {
             if (frameCount >= GeneratedFrameDatas.Count)
             {
-                Debug.LogWarning($"A frame you trying to add info to: {frameCount} doesn't exist");
+                Debug.LogWarning($"A frame you trying to add info to ({frameCount}) doesn't exist");
                 return;
             }
-            if (GeneratedFrameDatas[frameCount] == null) { Debug.LogWarning($"A frame you trying to add info to: {frameCount} is null, you should initialize it first"); return; }
+            if (GeneratedFrameDatas[frameCount] == null) { Debug.LogWarning($"A frame you trying to add info to ({frameCount}) is null, you should initialize it first"); return; }
             if (GeneratedFrameDatas[frameCount].ProjectilePositionData.ContainsKey(key))
                 GeneratedFrameDatas[frameCount].ProjectilePositionData[key] = new Tuple<SerializableVector3, SerializableVector3>(position, bezierControl);
             else
                 GeneratedFrameDatas[frameCount].ProjectilePositionData.Add(key, new Tuple<SerializableVector3, SerializableVector3>(position, bezierControl));
+        }
+
+        VisualElement AddNewProjectileGroupContainer(int containerIndex)
+        {
+            VisualElement newContainer = projectileContainerPrefab.CloneTree();
+            ProjectileGroupUI projGroup = new ProjectileGroupUI(newContainer, containerIndex, newContainer.Q<VisualElement>("root"), this, projectileInstancePrefab);
+            newContainer.Q<IntegerField>("projectileGroupIndexField").value = containerIndex;
+            newContainer.Q<ToolbarButton>("DeleteButton").clicked += () => DeleteProjectielGroupContainer(containerIndex);
+            newContainer.Q<Button>("AddProjectileButton").clicked += () => AddProjectileInstance(projGroup);
+            projectileGroupContainerDict.Add(containerIndex, projGroup);
+            projectileGroupScrollView.Add(newContainer);
+            return newContainer;
+        }
+
+        void DeleteProjectielGroupContainer(int containerIndex)
+        {
+            projectileGroupScrollView.Remove(projectileGroupContainerDict[containerIndex].root);
+            projectileGroupContainerDict.Remove(containerIndex);
+            projectileGroupIntField.value = FindFreeProjectileGroupIndex();
+
+        }
+        void AddProjectileInstance(ProjectileGroupUI group)
+        {
+            var i = group.AddProjectileInstance();
+            i.root.Q<ToolbarButton>("DeleteInstanceButton").clicked += () =>
+            {
+                DeleteProjectileInstance(group, i.projectileInstanceID.ProjectileInstanceID);
+            };
+
+            i.root.Q<Button>("SelectInstanceButton").clicked += () =>
+            {
+                SelectProjectileInstance(i);
+            };
+
+        }
+
+        void DeleteProjectileInstance(ProjectileGroupUI group, int projectileInstanceIndex)
+        {
+            if (SelectedProjectileInstance == group.projectileInstances[projectileInstanceIndex]) SelectProjectileInstance(null);
+            group.root.style.height = new StyleLength(new Length(group.root.resolvedStyle.height - ProjectileInstanceGUI.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
+            group.DeleteProjectileInstance(projectileInstanceIndex);
         }
 
         void CreateNewFrame(int frameCount, Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>> projectilePositionData)
@@ -192,38 +386,81 @@ namespace ProjectileAnimator
         }
         void DuringSceneGUI(SceneView sceneView)
         {
-            Vector3 gridZero = gridOrigin;
-            Quaternion gridRotation = this.gridRotation;
-            float gridUniformScale = gridCellSize;
-            Handles.TransformHandle(ref gridZero, ref gridRotation, ref gridUniformScale);
-            so.Update();
-            gridRotationSerialized.quaternionValue = gridRotation;
-            gridOriginSerialized.vector3Value = gridZero;
-            gridCellSizeSerialized.floatValue = gridUniformScale;
-            so.ApplyModifiedProperties();
+            if (modifyingGridInSceneView)
+            {
+                Vector3 gridZero = gridOrigin;
+                Quaternion gridRotation = this.gridRotation;
+                float gridUniformScale = gridCellSize;
+                Handles.TransformHandle(ref gridZero, ref gridRotation, ref gridUniformScale);
+                so.Update();
+                gridRotationSerialized.quaternionValue = gridRotation;
+                GridRotationField.value = gridRotation.eulerAngles;
+                gridOriginSerialized.vector3Value = gridZero;
+                GridOriginField.value = gridZero;
+                gridCellSizeSerialized.floatValue = gridUniformScale;
+                gridCellSizeField.value = gridUniformScale;
+                so.ApplyModifiedProperties();
+            }
             if (grid.GridRotation != gridRotationSerialized.quaternionValue ||
-            grid.GridOrigin != gridOriginSerialized.vector3Value + GridYLevel * Vector3.forward ||
-            grid.CellSize != gridCellSizeSerialized.floatValue || grid.GridSize != (Vector2Int)gridDimensions)
+                grid.GridOrigin != gridOriginSerialized.vector3Value + GridYLevel * Vector3.forward ||
+                grid.CellSize != gridCellSizeSerialized.floatValue || grid.GridSize != (Vector2Int)gridDimensions)
             {
                 grid = new Grid((Vector2Int)gridDimensions, GetMatrixWithYOffset(gridCellSize, GridYLevel, this.gridOrigin, this.gridRotation));
+                gridPointsScreenPosition = FindWorldToScreenSpaceProjection(sceneView, grid.Cells);
             }
-            if (Event.current.type == EventType.Repaint)
+            switch (Event.current.type)
             {
-                GizmoHelper.DrawGridWithHandles(grid);
-                //DrawGrid(gridSize, gridUniformScale, GridYLevel, gridZero, gridRotation);
+                case EventType.Repaint:
+                    GizmoHelper.DrawGridWithHandles(grid);
+                    if (grid != null)
+                    {
+                        if (sceneView.camera.worldToCameraMatrix != sceneCameraMatrix)
+                        {
+                            gridPointsScreenPosition = FindWorldToScreenSpaceProjection(sceneView, grid.Cells);
+                            sceneCameraMatrix = sceneView.camera.worldToCameraMatrix;
+                        }
+                    }
+                    break;
+                case EventType.MouseDown:
+                    if (SceneView.mouseOverWindow == sceneView && Event.current.button == 0)
+                    {
+                        Vector2 mouseViewportPosition = sceneView.camera.ScreenToViewportPoint(Event.current.mousePosition);
+                        Vector2 mousePositionCorrected = new Vector2(mouseViewportPosition.x, 1 - mouseViewportPosition.y);
+                        int gridCell = MathHelper.FindCellContainingPointIgnoreZ(mousePositionCorrected, gridPointsScreenPosition);
+                        Debug.Log(
+                            $"mouse position: {mousePositionCorrected} gridCell: {gridCell}");
+                    }
+                    break;
             }
 
         }
 
-
-        private void OnGUI()
+        Dictionary<int, Vector3[]> FindWorldToScreenSpaceProjection(SceneView view, Dictionary<int, Vector3[]> worldPoints)
         {
+            Dictionary<int, Vector3[]> result = new Dictionary<int, Vector3[]>();
+            foreach (var v in worldPoints)
+            {
+                result.Add(v.Key, new Vector3[] { view.camera.WorldToViewportPoint(v.Value[0]), view.camera.WorldToViewportPoint(v.Value[1]),
+                view.camera.WorldToViewportPoint(v.Value[2]), view.camera.WorldToViewportPoint(v.Value[3]) });
+            }
+            return result;
+        }
 
+        Vector3[] FindWorldToScreenSpaceProjection(SceneView view, params Vector3[] worldPoints)
+        {
+            Vector3[] result = new Vector3[worldPoints.Length];
+            for (int i = 0; i < worldPoints.Length; i++)
+            {
+                result[i] = view.camera.WorldToViewportPoint(worldPoints[i]);
+                //Debug.Log(result[i]);
+            }
+            return result;
         }
 
         private void OnDisable()
         {
             SceneView.duringSceneGui -= DuringSceneGUI;
+            SceneView.RepaintAll();
         }
     }
 }

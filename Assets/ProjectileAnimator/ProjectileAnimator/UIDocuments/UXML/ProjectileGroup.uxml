@@ -1,0 +1,16 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
+    <ui:VisualElement name="root" style="flex-grow: 1; border-bottom-width: 2px; border-left-width: 0; border-top-width: 2px; border-left-color: rgb(56, 142, 231); border-right-color: rgb(56, 142, 231); border-top-color: rgb(56, 142, 231); border-bottom-color: rgb(56, 142, 231); min-height: auto; height: auto;">
+        <uie:Toolbar style="flex-direction: row-reverse;">
+            <uie:ToolbarButton text="Delete" display-tooltip-when-elided="true" name="DeleteButton" style="background-color: rgb(204, 14, 14);" />
+        </uie:Toolbar>
+        <ui:VisualElement style="flex-direction: row; flex-grow: 0; flex-shrink: 0; height: auto; justify-content: space-between; align-items: center; margin-left: 10px; margin-right: 10px; margin-top: 10px; margin-bottom: 10px;">
+            <uie:IntegerField label="Projectile group index" value="42" focusable="false" readonly="true" name="projectileGroupIndexField" style="flex-grow: 0; flex-direction: column;" />
+            <uie:ColorField label="Trail color" value="RGBA(0.000, 1.000, 1.000, 1.000)" name="trailColorField" tooltip="Projectiles of this group will have their path colored with this color. You can override this color for each specific projectile" style="justify-content: space-between; align-items: flex-start; flex-direction: column;" />
+            <uie:ObjectField label="Projectile prefab (optional)" name="projectilePrefabField" allow-scene-objects="false" type="UnityEngine.GameObject, UnityEngine.CoreModule" style="flex-direction: column; justify-content: flex-start;" />
+        </ui:VisualElement>
+        <ui:VisualElement style="flex-direction: row; justify-content: space-between; flex-shrink: 0; max-height: none; height: 25px;">
+            <ui:Button text="Add projectile" display-tooltip-when-elided="true" name="AddProjectileButton" style="width: 100px; height: 25px;" />
+            <ui:Button text="Hide projectile list" display-tooltip-when-elided="true" name="DisplayProjectileList" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

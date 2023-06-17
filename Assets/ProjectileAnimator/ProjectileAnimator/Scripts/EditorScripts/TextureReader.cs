@@ -174,7 +174,7 @@ namespace ProjectileAnimator
                     mainTextures.Remove(t);
                     string res = t.name.Substring(t.name.LastIndexOf("AdditionalTexture") + toSearch.Length);
                     if (int.TryParse(res, out index)) { addTextures.Add(index, t); }
-                    else throw new NamingViolationException($"Can't parse {res} to int. Rename textre {t.name} following rules!");
+                    else throw new NamingViolationException($"Can't parse {res} to int. Rename texture {t.name} following rules!");
                 }
             }
             Debug.Log($"{addTextures.Count} textures sepatated");

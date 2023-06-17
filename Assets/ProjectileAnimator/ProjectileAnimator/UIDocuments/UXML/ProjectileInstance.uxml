@@ -1,0 +1,19 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
+    <ui:VisualElement style="flex-direction: row; height: 100%; width: 100%; justify-content: space-between; align-items: center; flex-shrink: 0; min-height: 100px; margin-left: 0; margin-right: 0; margin-top: 0; margin-bottom: 0; border-top-width: 0; border-bottom-width: 0; border-left-color: rgb(106, 106, 106); border-right-color: rgb(106, 106, 106); border-top-color: rgb(106, 106, 106); border-bottom-color: rgb(106, 106, 106); padding-left: 35px; padding-right: 2px; padding-top: 5px; padding-bottom: 5px;">
+        <ui:VisualElement name="BorderContainerOne" style="width: 30%; height: 100%; align-items: stretch; border-left-color: rgb(125, 125, 125); border-right-color: rgb(125, 125, 125); border-top-color: rgb(125, 125, 125); border-bottom-color: rgb(125, 125, 125); border-left-width: 2px; border-bottom-width: 2px; border-top-width: 2px;">
+            <uie:IntegerField label="Projectile index" value="42" readonly="true" style="flex-direction: column; justify-content: flex-start; align-items: stretch; height: 40%; width: 100%;" />
+            <uie:ColorField label="Color override" value="RGBA(0.000, 1.000, 1.000, 1.000)" name="trailColorOverrideField" style="height: 50%; align-items: center; flex-direction: column; justify-content: center;" />
+        </ui:VisualElement>
+        <ui:VisualElement name="BorderContainerTwo" style="height: 100%; width: 40%; align-items: center; justify-content: center; flex-direction: column; border-bottom-width: 2px; border-left-color: rgb(126, 126, 126); border-right-color: rgb(126, 126, 126); border-top-color: rgb(126, 126, 126); border-bottom-color: rgb(126, 126, 126); border-top-width: 2px; border-right-width: 0;">
+            <uie:Vector3IntField label="Position in current frame" name="ProjectilePositionField" style="width: 80%; height: 37px; flex-direction: column;" />
+        </ui:VisualElement>
+        <ui:VisualElement name="BorderContainerThree" style="height: 100%; width: 30%; align-items: stretch; justify-content: space-between; flex-direction: column; border-bottom-width: 2px; border-left-color: rgb(126, 126, 126); border-right-color: rgb(126, 126, 126); border-top-color: rgb(126, 126, 126); border-bottom-color: rgb(126, 126, 126); border-top-width: 2px; border-right-width: 2px;">
+            <uie:Toolbar style="width: 100%; flex-direction: row-reverse;">
+                <uie:ToolbarButton text="Delete" display-tooltip-when-elided="true" name="DeleteInstanceButton" enable-rich-text="true" style="background-color: rgba(204, 14, 14, 255);" />
+            </uie:Toolbar>
+            <ui:VisualElement style="height: 64px; align-items: stretch; justify-content: center;">
+                <ui:Button text="Select" display-tooltip-when-elided="true" name="SelectInstanceButton" style="-unity-text-align: middle-center; white-space: nowrap; height: 36px;" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

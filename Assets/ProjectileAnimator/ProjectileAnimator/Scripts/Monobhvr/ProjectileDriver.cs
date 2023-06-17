@@ -294,7 +294,7 @@ namespace ProjectileAnimator
                 }
                 GameObject go = foundObj.prefab;
                 var g = Instantiate(go, v.Value, Quaternion.identity);
-                projectilePositions.Add(new ProjectileKey(v.Key.ProjectilePrefabId, v.Key.ProjectileInternalId), g.transform);
+                projectilePositions.Add(new ProjectileKey(v.Key.ProjectilePrefabId, v.Key.ProjectileInstanceID), g.transform);
             }
             projectilePositions.SortProjectileDictionary();
         }
