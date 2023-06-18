@@ -65,6 +65,7 @@ namespace ProjectileAnimator
 
     public class Grid
     {
+        public Vector2 Center { get; private set; }
         Vector3[] points;
 
         public Dictionary<int, Vector3[]> Cells;
@@ -83,7 +84,7 @@ namespace ProjectileAnimator
             set { m_gridOrigin = value; m_worldPositions = RecalculatePositions(points, Matrix4x4.TRS(GridOrigin, GridRotation, CellSize * Vector3.one)); }
         }
         Vector3 m_gridOrigin;
-        public Vector2Int GridSize
+        public Vector2Int GridDimensions
         {
             get { return m_gridSize; }
             set { m_gridSize = value; points = ResizeGrid(value, TRS); }
@@ -101,21 +102,28 @@ namespace ProjectileAnimator
         public Grid(Vector2Int gridSize, float cellSize, Vector3 gridOrigin, Quaternion gridRotation)
         {
             m_transformMatrix = Matrix4x4.TRS(gridOrigin, gridRotation, cellSize * Vector3.one);
-            GridSize = gridSize;
+            GridDimensions = gridSize;
             m_gridOrigin = gridOrigin;
             m_gridRotation = gridRotation;
             m_cellSize = cellSize;
             m_worldPositions = RecalculatePositions(points, Matrix4x4.TRS(GridOrigin, GridRotation, CellSize * Vector3.one));
+            Center = new Vector2((gridSize.x - 1) / 2f, (gridSize.y - 1) / 2f);
+        }
+
+        public Vector2 CellIndexToRelativePosition(int cellIndex)
+        {
+            return new Vector2(cellIndex / GridDimensions.y, cellIndex % GridDimensions.y) - Center;
         }
 
         public Grid(Vector2Int gridSize, Matrix4x4 TRS)
         {
             m_transformMatrix = TRS;
-            GridSize = gridSize;
+            GridDimensions = gridSize;
             m_gridOrigin = TRS.MultiplyPoint3x4(Vector3.zero);
             m_gridRotation = TRS.rotation;
             m_cellSize = TRS.lossyScale.x;
             m_worldPositions = RecalculatePositions(points, TRS);
+            Center = new Vector2((gridSize.x - 1) / 2f, (gridSize.y - 1) / 2f);
         }
 
         Vector3[] ResizeGrid(Vector2Int gridSize, Matrix4x4 TRS)
@@ -130,6 +138,7 @@ namespace ProjectileAnimator
                     n++;
                 }
             }
+            Center = new Vector2((gridSize.x - 1) / 2f, (gridSize.y - 1) / 2f);
             return points;
         }
 
@@ -142,13 +151,13 @@ namespace ProjectileAnimator
             }
             Cells = new Dictionary<int, Vector3[]>();
             int n = 0;
-            for (int i = 0; i < points.Length - GridSize.y - 1; i++)
+            for (int i = 0; i < points.Length - GridDimensions.y - 1; i++)
             {
-                if ((i + 1) % (GridSize.y + 1) == 0 && i != 0)
+                if ((i + 1) % (GridDimensions.y + 1) == 0 && i != 0)
                 {
                     continue;
                 }
-                Cells.Add(n, new Vector3[] { results[i], results[i + 1], results[i + GridSize.y + 1], results[i + GridSize.y + 2] });
+                Cells.Add(n, new Vector3[] { results[i], results[i + 1], results[i + GridDimensions.y + 1], results[i + GridDimensions.y + 2] });
                 n++;
             }
             return results;

@@ -50,13 +50,13 @@ namespace ProjectileAnimator
         {
             for (int i = 0; i < grid.WorldPositions.Length; i++)
             {
-                if (i + 1 < grid.WorldPositions.Length && (i + 1) % (grid.GridSize.y + 1) != 0)
+                if (i + 1 < grid.WorldPositions.Length && (i + 1) % (grid.GridDimensions.y + 1) != 0)
                 {
                     Handles.DrawLine(grid.WorldPositions[i], grid.WorldPositions[i + 1]);
                 }
-                if (i + grid.GridSize.y + 1 < grid.WorldPositions.Length)
+                if (i + grid.GridDimensions.y + 1 < grid.WorldPositions.Length)
                 {
-                    Handles.DrawLine(grid.WorldPositions[i], grid.WorldPositions[i + grid.GridSize.y + 1]);
+                    Handles.DrawLine(grid.WorldPositions[i], grid.WorldPositions[i + grid.GridDimensions.y + 1]);
                 }
             }
         }

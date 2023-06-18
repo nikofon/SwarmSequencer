@@ -105,8 +105,7 @@ namespace ProjectileAnimator
 
         public Vector3 ScaleToVector3(float scale)
         {
-            SerializableVector3 a = Infinity;
-            return new Vector3(scale * x, scale * y, scale * z);
+            return scale * new Vector3(x, y, z);
         }
 
         public readonly static SerializableVector3 Infinity = new SerializableVector3(float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity);

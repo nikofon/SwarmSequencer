@@ -3,8 +3,7 @@
         <ui:Label text="Frame Info" display-tooltip-when-elided="true" style="height: 21px; font-size: 16px; -unity-font-style: bold; -unity-text-align: upper-center; -unity-text-outline-width: 0; border-left-width: 0; border-right-width: 0; border-top-width: 0; border-bottom-width: 2px; border-bottom-color: rgb(152, 152, 152); color: rgb(255, 255, 255);" />
         <ui:VisualElement style="height: 93px; flex-direction: row; justify-content: space-between;">
             <ui:VisualElement style="width: 94px; border-left-width: 2px; border-right-width: 2px; border-top-width: 0; border-bottom-width: 0; border-left-color: rgb(105, 166, 101); border-right-color: rgb(105, 166, 101); border-top-color: rgb(105, 166, 101); border-bottom-color: rgb(105, 166, 101); justify-content: flex-start;">
-                <ui:Label text="Current Frame:" display-tooltip-when-elided="true" style="margin-left: 1px; margin-right: 1px; margin-top: 1px; margin-bottom: 1px; color: rgb(255, 255, 255); white-space: normal; font-size: 10px;" />
-                <ui:Label text="0" display-tooltip-when-elided="true" name="CurrentFrameCounter" style="height: 55px; justify-content: flex-start; -unity-text-align: middle-center; font-size: 30px;" />
+                <uie:IntegerField label="Current frame:" value="0" name="CurrentFrameCounter" is-delayed="true" style="flex-direction: column; height: 100%;" />
             </ui:VisualElement>
             <ui:VisualElement style="width: 401px; justify-content: space-between; align-items: stretch; flex-grow: 1; flex-direction: row;">
                 <ui:SliderInt picking-mode="Ignore" label="Change current frame" value="0" high-value="100" show-input-field="false" name="ChangeCurrentFrameSlider" style="flex-direction: column; justify-content: flex-start; align-items: flex-start; flex-shrink: 1; flex-grow: 1; flex-wrap: nowrap; margin-left: 4px; margin-right: 4px; margin-top: 4px; margin-bottom: 4px; font-size: 15px; background-color: rgba(0, 0, 0, 0);" />
@@ -14,8 +13,7 @@
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement style="width: 94px; border-left-width: 2px; border-right-width: 2px; border-top-width: 0; border-bottom-width: 0; border-left-color: rgb(105, 166, 101); border-right-color: rgb(105, 166, 101); border-top-color: rgb(105, 166, 101); border-bottom-color: rgb(105, 166, 101);">
-                <ui:Label text="Last Frame:" display-tooltip-when-elided="true" style="margin-left: 1px; margin-right: 1px; margin-top: 1px; margin-bottom: 1px; color: rgb(255, 255, 255); white-space: normal;" />
-                <ui:Label text="0" display-tooltip-when-elided="true" name="LastFrameCounter" style="height: 53px; justify-content: flex-start; -unity-text-align: middle-center; font-size: 30px;" />
+                <uie:IntegerField label="Frame count" value="0" name="FrameCountCounter" is-delayed="true" style="flex-direction: column; height: 100%;" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
@@ -32,7 +30,7 @@
             </ui:VisualElement>
             <ui:VisualElement style="align-items: stretch; justify-content: space-between; flex-grow: 1; width: auto; flex-direction: column; flex-shrink: 0; border-left-width: 1px; border-left-color: rgb(255, 255, 255); border-right-color: rgb(255, 255, 255); border-top-color: rgb(255, 255, 255); border-bottom-color: rgb(255, 255, 255);">
                 <uie:Vector3IntField label="Grid Dimensions" name="GridDimensions" />
-                <ui:SliderInt picking-mode="Ignore" label="Y level" value="0" high-value="100" show-input-field="true" name="YLevelSlider" style="flex-direction: column; justify-content: flex-end; align-items: stretch; margin-left: 0; margin-right: 0; margin-top: 0; margin-bottom: 0;" />
+                <ui:SliderInt picking-mode="Ignore" label="Grid depth" value="0" high-value="100" show-input-field="true" name="GridDepthSlider" style="flex-direction: column; justify-content: flex-end; align-items: stretch; margin-left: 0; margin-right: 0; margin-top: 0; margin-bottom: 0;" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
@@ -43,9 +41,9 @@
                 <ui:Label text="Selected projectile instance:" display-tooltip-when-elided="true" style="font-size: 18px;" />
                 <ui:VisualElement style="flex-direction: row; height: 32px;">
                     <ui:Label text="Group index:" display-tooltip-when-elided="true" style="font-size: 12px; -unity-text-align: middle-left;" />
-                    <ui:Label text="5" display-tooltip-when-elided="true" name="GroupIndexCounter" style="font-size: 24px;" />
+                    <ui:Label text="-" display-tooltip-when-elided="true" name="GroupIndexCounter" style="font-size: 24px;" />
                     <ui:Label text="     Instance index:" display-tooltip-when-elided="true" style="font-size: 12px; -unity-text-align: middle-left;" />
-                    <ui:Label text="5" display-tooltip-when-elided="true" name="InstanceIndexCounter" style="font-size: 24px;" />
+                    <ui:Label text="-" display-tooltip-when-elided="true" name="InstanceIndexCounter" style="font-size: 24px;" />
                     <uie:ColorField label="Trail color" value="RGBA(0.000, 1.000, 1.000, 1.000)" name="SelectedProjectileColorField" style="width: 199px; justify-content: center; align-items: stretch; flex-direction: column; height: 32px; padding-left: 5px; padding-right: 5px; padding-top: 5px; padding-bottom: 5px;" />
                 </ui:VisualElement>
             </ui:VisualElement>
