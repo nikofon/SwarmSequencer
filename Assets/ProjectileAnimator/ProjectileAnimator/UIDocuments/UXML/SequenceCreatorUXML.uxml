@@ -49,9 +49,9 @@
             </ui:VisualElement>
             <ui:VisualElement style="flex-grow: 1; flex-direction: row;">
                 <ui:VisualElement style="width: 70%; height: 100%; justify-content: space-between;">
-                    <uie:Vector3IntField label="Position in prev. frame" style="margin-left: 2px; margin-right: 2px; margin-top: 5px; margin-bottom: 5px; padding-left: 0; padding-right: 0; padding-top: 0; padding-bottom: 0;" />
-                    <uie:Vector3IntField label="Position in current frame" style="margin-right: 2px; margin-left: 2px;" />
-                    <uie:Vector3IntField label="Position in next frame" style="margin-bottom: 5px; margin-top: 5px; margin-right: 2px; margin-left: 2px;" />
+                    <uie:Vector3Field label="Position in prev. frame" name="selectedInstPosInPrevFrame" />
+                    <uie:Vector3Field label="Position in current frame" name="selectedInstPosInCurrentFrame" />
+                    <uie:Vector3Field label="Position in next frame" name="selectedInstPosInNextFrame" />
                 </ui:VisualElement>
                 <ui:VisualElement style="width: 30%; height: 100%;">
                     <uie:ObjectField label="Projectile Prefab" type="UnityEngine.GameObject, UnityEngine.CoreModule" allow-scene-objects="false" name="SelectedInstancePrefabField" style="flex-direction: column; margin-top: 5px;" />

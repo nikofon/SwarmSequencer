@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEditor;
 using System;
 using System.Collections;
+using System.Linq;
 using System.Collections.Generic;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
@@ -35,9 +36,9 @@ namespace ProjectileAnimator
         SerializedProperty gridCellSizeSerialized;
 
         //Projectile Info
-        List<ProjectileKey> ProjectileKeys = new List<ProjectileKey>();
-        List<FrameData> GeneratedFrameDatas = new List<FrameData>();
-        FrameData selectedFrameData;
+
+        int frameCount = 0;
+        int selectedFrame;
 
         public ProjectileInstanceGUI SelectedProjectileInstance { get; private set; }
 
@@ -75,6 +76,10 @@ namespace ProjectileAnimator
         ObjectField selectedProjectilePrefabField;
         GameObject selectedInstancePrefab;
         Editor selectedInstancePrefabEditor;
+        Vector3Field selectedInstPosInPrevFrame;
+        Vector3Field selectedInstPosInCurrentFrame;
+        Vector3Field selectedInstPosInNextFrame;
+
 
         event Action<int, int> OnFrameChanged;
 
@@ -118,6 +123,7 @@ namespace ProjectileAnimator
                 SceneView.RepaintAll();
             });
             gridRotationField = rootVisualElement.Q<Vector3Field>("GridRotationField");
+            gridRotationField.MakeDelayed();
             gridRotationField.value = gridRotation.eulerAngles;
             gridRotationField.RegisterValueChangedCallback((v) =>
             {
@@ -159,7 +165,7 @@ namespace ProjectileAnimator
             currentFrameCounter = rootVisualElement.Q<IntegerField>("CurrentFrameCounter");
             currentFrameCounter.RegisterValueChangedCallback((v) =>
             {
-                if (v.newValue - 1 < GeneratedFrameDatas.Count)
+                if (v.newValue - 1 < frameCount)
                 {
                     SelectFrame(v.newValue - 1);
                 }
@@ -172,27 +178,25 @@ namespace ProjectileAnimator
             frameCountCounter = rootVisualElement.Q<IntegerField>("FrameCountCounter");
             frameCountCounter.RegisterValueChangedCallback((v) =>
             {
-                Debug.Log($"changing value to: {v.newValue}");
                 if (v.newValue - 1 <= 0)
                 {
                     frameCountCounter.SetValueWithoutNotify(v.previousValue);
                     Debug.LogWarning("You can't have less then one frame");
                     return;
                 }
-                if (v.newValue - 1 >= GeneratedFrameDatas.Count)
+                if (v.newValue - 1 >= frameCount)
                 {
-                    int currentCount = GeneratedFrameDatas.Count;
+                    int currentCount = frameCount;
                     for (int i = 0; i < v.newValue - currentCount; i++)
                     {
-                        Debug.Log($"commanding to add frame {i + currentCount}");
                         AddFrame(i + currentCount, new Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>>());
                     }
                     UpdateFrameCountCounterUI();
                 }
-                if (v.newValue == GeneratedFrameDatas.Count) return;
+                if (v.newValue == frameCount) return;
                 else
                 {
-                    int currentCount = GeneratedFrameDatas.Count;
+                    int currentCount = frameCount;
                     for (int i = currentCount - 1; i > v.newValue - 1; i--)
                     {
                         DeleteFrame(i);
@@ -200,8 +204,8 @@ namespace ProjectileAnimator
                     UpdateFrameCountCounterUI();
                 }
             });
-            rootVisualElement.Q<Button>("AddFrameButton").clicked += () => { AddFrame(GeneratedFrameDatas.Count, new Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>>()); UpdateFrameCountCounterUI(); };
-            rootVisualElement.Q<Button>("DeleteFrameButton").clicked += () => { DeleteFrame(selectedFrameData.Order); UpdateFrameCountCounterUI(); };
+            rootVisualElement.Q<Button>("AddFrameButton").clicked += () => { AddFrame(selectedFrame + 1, new Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>>()); UpdateFrameCountCounterUI(); };
+            rootVisualElement.Q<Button>("DeleteFrameButton").clicked += () => { DeleteFrame(selectedFrame); UpdateFrameCountCounterUI(); };
             #endregion
             projectileGroupScrollView = rootVisualElement.Q<ScrollView>("ProjectileGroupsScrollView");
 
@@ -234,6 +238,13 @@ namespace ProjectileAnimator
                 }
             }
             );
+            selectedInstPosInCurrentFrame = rootVisualElement.Q<Vector3Field>("selectedInstPosInCurrentFrame");
+            // selectedInstPosInCurrentFrame.RegisterValueChangedCallback((v) =>
+            // {
+            //     SelectedProjectileInstance.SetPositionInFrame(selectedFrame, v.newValue, new SerializableVector3(1, 1, 1), grid);
+            // });
+            selectedInstPosInNextFrame = rootVisualElement.Q<Vector3Field>("selectedInstPosInNextFrame");
+            selectedInstPosInPrevFrame = rootVisualElement.Q<Vector3Field>("selectedInstPosInPrevFrame");
             selectedProjectilePreview = rootVisualElement.Q<IMGUIContainer>("selectedProjectilePreview");
             #endregion
 
@@ -308,6 +319,18 @@ namespace ProjectileAnimator
             selectedProjectilePrefabField.value = selected.parent.prefab;
             selectedInstancePrefab = selected.parent.prefab;
             selectedInstancePrefabEditor = Editor.CreateEditor(selectedInstancePrefab);
+            if (selected.FramePositionAndBezier.ContainsKey(selectedFrame))
+                selectedInstPosInCurrentFrame.SetValueWithoutNotify(selected.FramePositionAndBezier[selectedFrame].Item1);
+            else
+                selectedInstPosInCurrentFrame.SetValueWithoutNotify(new Vector3(float.NaN, float.NaN, float.NaN));
+            if (selected.FramePositionAndBezier.ContainsKey(selectedFrame - 1))
+                selectedInstPosInPrevFrame.SetValueWithoutNotify(selected.FramePositionAndBezier[selectedFrame - 1].Item1);
+            else
+                selectedInstPosInPrevFrame.SetValueWithoutNotify(new Vector3(float.NaN, float.NaN, float.NaN));
+            if (selected.FramePositionAndBezier.ContainsKey(selectedFrame + 1))
+                selectedInstPosInNextFrame.SetValueWithoutNotify(selected.FramePositionAndBezier[selectedFrame + 1].Item1);
+            else
+                selectedInstPosInNextFrame.SetValueWithoutNotify(new Vector3(float.NaN, float.NaN, float.NaN));
             foreach (var v in selected.borderElements)
             {
                 v.style.borderTopColor = ProjectileInstanceGUI.SELECTED_BORDER_COLOR;
@@ -330,18 +353,30 @@ namespace ProjectileAnimator
 
         void SelectFrame(int frameIndex)
         {
-            selectedFrameData = GeneratedFrameDatas[frameIndex];
+            Debug.Log($"selecting frame {frameIndex}");
+            if (frameIndex >= frameCount) return;
+            selectedFrame = frameIndex;
             UpdateCurrentFrameCounterUI();
+            if (SelectedProjectileInstance != null)
+                UpdateSelectedInstanceUI();
         }
 
 
-        void AddProjectileInfoToFrame(FrameData frameData, ProjectileKey key, SerializableVector3 position, SerializableVector3 bezierControl)
+        void AddProjectileInfoToFrame(int frameIndex, ProjectileInstanceGUI key, SerializableVector3 position, SerializableVector3 bezierControl)
         {
-            if (frameData == null) { Debug.LogWarning("A frame you trying to add info to is null, you should initialize it first"); return; }
-            if (frameData.ProjectilePositionData.ContainsKey(key))
-                frameData.ProjectilePositionData[key] = new Tuple<SerializableVector3, SerializableVector3>(position, bezierControl);
-            else
-                frameData.ProjectilePositionData.Add(key, new Tuple<SerializableVector3, SerializableVector3>(position, bezierControl));
+            key.SetPositionInFrame(frameIndex, position, bezierControl, grid);
+            UpdateSelectedInstanceUI();
+        }
+
+        void AddProjectileInfoToFrame(int frameIndex, ProjectileInstanceGUI key, int cellPosition, int depth, SerializableVector3 bezierControl)
+        {
+            key.SetPositionInFrameByCell(frameIndex, cellPosition, depth, bezierControl, grid);
+            UpdateSelectedInstanceUI();
+        }
+
+        void RemoveProjectileInfoFromFrame(int frameIndex, ProjectileInstanceGUI key)
+        {
+            key.ClearFrame(frameIndex);
         }
 
         VisualElement AddNewProjectileGroupContainer(int containerIndex)
@@ -385,64 +420,90 @@ namespace ProjectileAnimator
             group.DeleteProjectileInstance(projectileInstanceIndex);
         }
 
-        void AddFrame(int frameCount, Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>> projectilePositionData)
+        void AddFrame(int frameIndex, Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>> projectilePositionData)
         {
-            Debug.Log($"Adding frame {frameCount}");
-            if (frameCount >= GeneratedFrameDatas.Count)
+            Debug.Log($"Adding frame {frameIndex} framecount: {frameCount}");
+            if (frameIndex != frameCount)
             {
-                frameCount = GeneratedFrameDatas.Count;
-                GeneratedFrameDatas.Add(new FrameData(projectilePositionData, frameCount));
+                ShiftFramesInProjectileInstances(frameIndex, 1);
             }
-            else
-            {
-                List<FrameData> newFrameDatas = new List<FrameData>(GeneratedFrameDatas.Count + 1);
-                for (int i = 0; i < frameCount; i++)
-                {
-                    newFrameDatas[i] = GeneratedFrameDatas[i];
-                }
-                newFrameDatas[frameCount].ProjectilePositionData = projectilePositionData;
-                for (int i = frameCount + 2; i <= GeneratedFrameDatas.Count; i++)
-                {
-                    newFrameDatas[i] = GeneratedFrameDatas[i - 1];
-                    newFrameDatas[i].Order = i;
-                }
-                GeneratedFrameDatas = newFrameDatas;
-            }
+            frameCount++;
+            SelectFrame(frameIndex);
         }
 
         void UpdateFrameCountCounterUI()
         {
-            selectedFrameSlider.highValue = GeneratedFrameDatas.Count - 1;
-            frameCountCounter.SetValueWithoutNotify(GeneratedFrameDatas.Count);
+            selectedFrameSlider.highValue = frameCount - 1;
+            frameCountCounter.SetValueWithoutNotify(frameCount);
         }
 
         void UpdateCurrentFrameCounterUI()
         {
-            currentFrameCounter.SetValueWithoutNotify(selectedFrameData.Order + 1);
-            selectedFrameSlider.SetValueWithoutNotify(selectedFrameData.Order);
+            currentFrameCounter.SetValueWithoutNotify(selectedFrame + 1);
+            selectedFrameSlider.SetValueWithoutNotify(selectedFrame);
         }
 
-        void DeleteFrame(int frameCount)
+        void DeleteFrame(int frameIndex)
         {
-            GeneratedFrameDatas.RemoveAt(frameCount);
-            if (frameCount == GeneratedFrameDatas.Count)
+            foreach (var prjGrp in projectileGroupContainerDict)
             {
-                selectedFrameData = GeneratedFrameDatas[frameCount - 1];
+                foreach (var prj in prjGrp.Value.projectileInstances)
+                {
+                    if (prj.Value.FramePositionAndBezier.ContainsKey(frameIndex))
+                    {
+                        prj.Value.ClearFrame(frameIndex);
+                    }
+                }
+            }
+            if (frameIndex != frameCount - 1)
+            {
+                ShiftFramesInProjectileInstances(frameIndex, -1);
+                SelectFrame(frameIndex - 1);
             }
             else
+                SelectFrame(frameIndex);
+            frameCount--;
+        }
+
+        /// <summary>
+        /// Shifts all frames from starting to frame + offset. For example for startingFrame = 1 and offset = 1: frame 1 becomes frame 2, frame 2 becomes frame 3 and so on. Used to handle adding and deleting frames.
+        /// </summary>
+        /// <param name="startingFrame"></param>
+        /// <param name="offset"></param>
+        void ShiftFramesInProjectileInstances(int startingFrame, int offset)
+        {
+            foreach (var prjGrp in projectileGroupContainerDict)
             {
-                for (int i = frameCount; i < GeneratedFrameDatas.Count; i++)
+                foreach (var prj in prjGrp.Value.projectileInstances)
                 {
-                    GeneratedFrameDatas[i].Order = i;
+                    var keys = prj.Value.FramePositionAndBezier.Keys.ToList();
+                    keys.Sort();
+                    int index = keys.FindIndex(x => x >= startingFrame);
+                    if (index == -1) continue;
+                    Dictionary<int, Tuple<SerializableVector3, SerializableVector3>> tempStorage = new Dictionary<int, Tuple<SerializableVector3, SerializableVector3>>();
+                    for (int i = index; i < keys.Count; i++)
+                    {
+                        if (keys.Contains(keys[i] + offset))
+                        {
+                            tempStorage.Add(keys[i] + offset, prj.Value.FramePositionAndBezier[keys[i] + offset]);
+                        }
+                        if (tempStorage.ContainsKey(keys[i]))
+                        {
+                            prj.Value.SetPositionInFrame(keys[i] + offset, tempStorage[keys[i]].Item1, tempStorage[keys[i]].Item2, grid);
+                            tempStorage.Remove(keys[i]);
+                        }
+                        else
+                            prj.Value.SetPositionInFrame(keys[i] + offset, prj.Value.FramePositionAndBezier[keys[i]].Item1, prj.Value.FramePositionAndBezier[keys[i]].Item2, grid);
+                    }
+                    prj.Value.ClearFrame(startingFrame);
                 }
-                selectedFrameData = GeneratedFrameDatas[frameCount];
             }
         }
 
-        Matrix4x4 GetMatrixWithYOffset(float cellSize, float yLevel, Vector3 zero, Quaternion gridRotation)
+
+        Matrix4x4 CalculateTRS(float cellSize, Vector3 zero, Quaternion gridRotation)
         {
             var TRSMatrix = Matrix4x4.TRS(zero, gridRotation, cellSize * Vector3.one);
-            TRSMatrix *= Matrix4x4.Translate(yLevel * cellSize * Vector3.forward);
             return TRSMatrix;
         }
         void DuringSceneGUI(SceneView sceneView)
@@ -453,20 +514,15 @@ namespace ProjectileAnimator
                 Quaternion gridRotation = this.gridRotation;
                 float gridUniformScale = gridCellSize;
                 Handles.TransformHandle(ref gridZero, ref gridRotation, ref gridUniformScale);
-                so.Update();
-                gridRotationSerialized.quaternionValue = gridRotation;
                 gridRotationField.value = gridRotation.eulerAngles;
-                gridOriginSerialized.vector3Value = gridZero;
                 gridOriginField.value = gridZero;
-                gridCellSizeSerialized.floatValue = gridUniformScale;
                 gridCellSizeField.value = gridUniformScale;
-                so.ApplyModifiedProperties();
             }
             if (grid.GridRotation != gridRotationSerialized.quaternionValue ||
-                grid.GridOrigin != gridOriginSerialized.vector3Value + gridDepthLevel * Vector3.forward ||
+                grid.GridOrigin != gridOriginSerialized.vector3Value ||
                 grid.CellSize != gridCellSizeSerialized.floatValue || grid.GridDimensions != (Vector2Int)gridDimensions)
             {
-                grid = new Grid((Vector2Int)gridDimensions, GetMatrixWithYOffset(gridCellSize, gridDepthLevel, this.gridOrigin, this.gridRotation));
+                grid = new Grid((Vector2Int)gridDimensions, CalculateTRS(gridCellSize, this.gridOrigin, this.gridRotation));
                 gridPointsScreenPosition = FindWorldToScreenSpaceProjection(sceneView, grid.Cells);
             }
             switch (Event.current.type)
@@ -474,39 +530,62 @@ namespace ProjectileAnimator
                 case EventType.Repaint:
                     if (grid != null)
                     {
-                        GizmoHelper.DrawGridWithHandles(grid);
+                        if (gridDepthLevel == 0)
+                        {
+                            GizmoHelper.DrawGridWithHandles(grid);
+                        }
+                        else
+                        {
+                            Grid adjustedGrid = new Grid(grid.GridDimensions, Matrix4x4.Translate(Vector3.forward * gridDepthLevel * gridCellSize) * grid.TRS);
+                            GizmoHelper.DrawGridWithHandles(adjustedGrid);
+                        }
                         if (sceneView.camera.worldToCameraMatrix != sceneCameraMatrix)
                         {
                             gridPointsScreenPosition = FindWorldToScreenSpaceProjection(sceneView, grid.Cells);
                             sceneCameraMatrix = sceneView.camera.worldToCameraMatrix;
                         }
-                        if (selectedFrameData != null)
-                        {
-                            if (selectedFrameData.ProjectilePositionData.Count != 0)
-                            {
-                                foreach (var prj in selectedFrameData.ProjectilePositionData)
-                                {
-                                    DrawProjectilePathOnGrid(prj.Key, selectedFrameData.Order);
-                                }
-                            }
-                        }
+                        DrawFramesOnGrid(selectedFrame, 0.8f, 0.5f);
                     }
                     break;
                 case EventType.MouseDown:
-                    if (SceneView.mouseOverWindow == sceneView && Event.current.button == 0)
+                    if (SceneView.mouseOverWindow == sceneView)
                     {
-                        if (SelectedProjectileInstance != null)
+                        if (Event.current.button == 0)
+                        {
+                            if (SelectedProjectileInstance != null)
+                            {
+                                Vector2 mouseViewportPosition = sceneView.camera.ScreenToViewportPoint(Event.current.mousePosition);
+                                Vector2 mousePositionCorrected = new Vector2(mouseViewportPosition.x, 1 - mouseViewportPosition.y);
+                                int gridCell = MathHelper.FindCellContainingPointIgnoreZ(mousePositionCorrected, gridPointsScreenPosition);
+                                if (gridCell != -1)
+                                {
+                                    AddProjectileInfoToFrame(selectedFrame, SelectedProjectileInstance,
+                                    gridCell, gridDepthLevel, new SerializableVector3(1, 1, 1));
+                                }
+                            }
+                        }
+                        else if (Event.current.button == 1)
                         {
                             Vector2 mouseViewportPosition = sceneView.camera.ScreenToViewportPoint(Event.current.mousePosition);
                             Vector2 mousePositionCorrected = new Vector2(mouseViewportPosition.x, 1 - mouseViewportPosition.y);
                             int gridCell = MathHelper.FindCellContainingPointIgnoreZ(mousePositionCorrected, gridPointsScreenPosition);
-                            Debug.Log($"grid cell {gridCell}");
                             if (gridCell != -1)
                             {
-                                Vector2 relativePosition = grid.CellIndexToRelativePosition(gridCell);
-                                Debug.Log($"Relative position: {relativePosition}");
-                                AddProjectileInfoToFrame(selectedFrameData, SelectedProjectileInstance.projectileInstanceID,
-                                new SerializableVector3(relativePosition.x, relativePosition.y, gridDepthLevel), new SerializableVector3(1, 1, 1));
+                                ProjectileInstanceGUI keyToRemove = null;
+                                foreach (var v in projectileGroupContainerDict)
+                                {
+                                    foreach (var vv in v.Value.projectileInstances)
+                                    {
+                                        if (vv.Value.GetCellIndex(selectedFrame) == gridCell)
+                                        {
+                                            keyToRemove = vv.Value; break;
+                                        }
+                                    }
+                                }
+                                if (keyToRemove != null)
+                                {
+                                    RemoveProjectileInfoFromFrame(selectedFrame, keyToRemove);
+                                }
                             }
                         }
                     }
@@ -514,16 +593,13 @@ namespace ProjectileAnimator
                 case EventType.KeyDown:
                     if (Event.current.keyCode == KeyCode.D)
                     {
-                        if (selectedFrameData.Order + 1 < GeneratedFrameDatas.Count)
-                        {
-                            SelectFrame(selectedFrameData.Order + 1);
-                        }
+                        SelectFrame(selectedFrame + 1);
                     }
                     else if (Event.current.keyCode == KeyCode.A)
                     {
-                        if (selectedFrameData.Order - 1 >= 0)
+                        if (selectedFrame - 1 >= 0)
                         {
-                            SelectFrame(selectedFrameData.Order - 1);
+                            SelectFrame(selectedFrame - 1);
                         }
                     }
                     break;
@@ -531,38 +607,38 @@ namespace ProjectileAnimator
 
         }
 
-        void DrawProjectilePathOnGrid(ProjectileKey prj, int currentFrame, int lookForwardAmount = 1, int lookBackwardsAmount = 1)
+        void DrawFramesOnGrid(int frameToDraw, float meshSize, float meshSizeDecay, int lookForwardAmount = 1, int lookBackwardsAmount = 1)
         {
-            Handles.color = projectileGroupContainerDict[prj.ProjectilePrefabId].projectileInstances[prj.ProjectileInstanceID].trailColor;
-            Color secondaryColor = Handles.color;
-            secondaryColor.a = 0.5f;
-            Vector3 thisFramePos = gridOrigin + GeneratedFrameDatas[currentFrame].ProjectilePositionData[prj].Item1.ScaleToVector3(gridCellSize);
-            Handles.DrawWireCube(thisFramePos, gridCellSize / 2.2f * Vector3.one);
-            Handles.color = secondaryColor;
-            for (int i = 1; i <= lookBackwardsAmount; i++)
+            DrawFramesRecursively(frameToDraw, null, lookForwardAmount, false, 1, meshSize, meshSizeDecay);
+            DrawFramesRecursively(frameToDraw, null, lookBackwardsAmount, true, -1, meshSize, meshSizeDecay);
+        }
+
+        void DrawFramesRecursively(int frameToDraw, Dictionary<ProjectileKey, Vector3> connexionPositions, int propogationAmount, bool skipFirstDraw, int direction, float meshSize, float meshSizeDecay)
+        {
+            Dictionary<ProjectileKey, Vector3> projPositions = new Dictionary<ProjectileKey, Vector3>();
+            foreach (var prjGrp in projectileGroupContainerDict)
             {
-                if (currentFrame - i >= 0 && GeneratedFrameDatas[currentFrame - i].ProjectilePositionData.ContainsKey(prj))
+                foreach (var prj in prjGrp.Value.projectileInstances)
                 {
-                    Vector3 prevFramePos = gridOrigin + GeneratedFrameDatas[currentFrame - i].ProjectilePositionData[prj].Item1.ScaleToVector3(gridCellSize);
-                    Handles.DrawWireCube(prevFramePos, gridCellSize / 3 * Vector3.one);
-                    Handles.DrawAAPolyLine(5f, prevFramePos, thisFramePos);
-                    Handles.BeginGUI();
-                    Handles.Label(prevFramePos, (currentFrame - i).ToString());
-                    Handles.EndGUI();
-                    //Handles.ArrowHandleCap(0, prevFramePos, Quaternion.FromToRotation(Vector3.forward, thisFramePos - prevFramePos), Vector3.Distance(thisFramePos, prevFramePos) - gridCellSize / 4.2f, EventType.Repaint);
+                    if (!prj.Value.visible || !prj.Value.FramePositionAndBezier.ContainsKey(frameToDraw)) continue;
+                    Vector3 thisFramePos = grid.TRS.MultiplyPoint3x4((Vector3)prj.Value.FramePositionAndBezier[frameToDraw].Item1);
+                    if (!skipFirstDraw)
+                    {
+                        Handles.color = prj.Value.trailColor;
+                        Handles.DrawWireCube(thisFramePos, gridCellSize * meshSizeDecay * meshSize * Vector3.one);
+                        Handles.BeginGUI();
+                        Handles.Label(thisFramePos, (frameToDraw + 1).ToString());
+                        Handles.EndGUI();
+                        if (connexionPositions != null && connexionPositions.ContainsKey(prj.Value.projectileInstanceID))
+                            Handles.DrawAAPolyLine(5f, thisFramePos, connexionPositions[prj.Value.projectileInstanceID]);
+                    }
+                    projPositions.Add(prj.Value.projectileInstanceID, thisFramePos);
                 }
             }
-            for (int i = 1; i <= lookForwardAmount; i++)
+            if (propogationAmount != 0)
             {
-                if (currentFrame + i < GeneratedFrameDatas.Count && GeneratedFrameDatas[currentFrame + i].ProjectilePositionData.ContainsKey(prj))
-                {
-                    Vector3 nextFramePos = gridOrigin + GeneratedFrameDatas[currentFrame + i].ProjectilePositionData[prj].Item1.ScaleToVector3(gridCellSize);
-                    Handles.DrawWireCube(nextFramePos, gridCellSize / 3 * Vector3.one);
-                    Handles.DrawAAPolyLine(5f, nextFramePos, thisFramePos);
-                    Handles.BeginGUI();
-                    Handles.Label(nextFramePos, (currentFrame + i).ToString());
-                    Handles.EndGUI();
-                }
+                if (frameToDraw + direction >= 0 && frameToDraw + direction < frameCount)
+                    DrawFramesRecursively(frameToDraw + direction, projPositions, propogationAmount - 1, false, direction, meshSizeDecay * meshSize, meshSizeDecay);
             }
         }
 
@@ -583,7 +659,6 @@ namespace ProjectileAnimator
             for (int i = 0; i < worldPoints.Length; i++)
             {
                 result[i] = view.camera.WorldToViewportPoint(worldPoints[i]);
-                //Debug.Log(result[i]);
             }
             return result;
         }

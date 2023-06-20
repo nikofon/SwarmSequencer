@@ -115,6 +115,18 @@ namespace ProjectileAnimator
             return new Vector2(cellIndex / GridDimensions.y, cellIndex % GridDimensions.y) - Center;
         }
 
+        public int RelativePositionToCellIndex(float x, float y)
+        {
+            Vector2 pos = new Vector2(x, y) + Center;
+            return (int)(pos.x * GridDimensions.y + pos.y);
+        }
+
+        public int RelativePositionToCellIndex(Vector2 position)
+        {
+            Vector2 pos = position + Center;
+            return (int)(pos.x * GridDimensions.y + pos.y);
+        }
+
         public Grid(Vector2Int gridSize, Matrix4x4 TRS)
         {
             m_transformMatrix = TRS;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
+using System;
 
 namespace ProjectileAnimator
 {
@@ -50,6 +51,14 @@ namespace ProjectileAnimator
                 (v) =>
                 {
                     trailColor = v.newValue;
+                    foreach (var inst in projectileInstances)
+                    {
+                        if (inst.Value.trailColor == v.previousValue)
+                        {
+                            inst.Value.trailColorField.value = v.newValue;
+                        }
+                    }
+                    parent.UpdateSelectedInstanceUI();
                 }
                 );
             gof = root.Q<ObjectField>("projectilePrefabField");
@@ -141,8 +150,9 @@ namespace ProjectileAnimator
     {
         public static readonly Color NORMAL_BORDER_COLOR = new Color(0.4941176f, 0.4941176f, 0.4941176f);
         public static readonly Color SELECTED_BORDER_COLOR = new Color(0.04313726F, 0.7058824f, 0f);
-        public Color trailColor;
         public const int BLOCK_PIXEL_HEIGHT = 100;
+        public bool visible = true;
+        public Color trailColor;
         public VisualElement root;
 
         public Vector3IntField positionField;
@@ -152,7 +162,85 @@ namespace ProjectileAnimator
         public VisualElement[] borderElements;
         public ProjectileGroupUI parent;
         public ColorField trailColorField;
+        Dictionary<int, int> cellPositionInFrame = new Dictionary<int, int>();
 
+        public Dictionary<int, Tuple<SerializableVector3, SerializableVector3>> FramePositionAndBezier = new Dictionary<int, Tuple<SerializableVector3, SerializableVector3>>();
+
+        /// <summary>
+        /// Returns index of a cell in which this projectile is positioned at a given frame
+        /// </summary>
+        /// <param name="frame"></param>
+        /// <returns>Cell index</returns>
+        public int GetCellIndex(int frame)
+        {
+            if (!cellPositionInFrame.ContainsKey(frame)) return int.MinValue;
+            return cellPositionInFrame[frame];
+        }
+
+        /// <summary>
+        /// Deletes this projectile from the given frame
+        /// </summary>
+        /// <param name="frameIndex"></param>
+        public void ClearFrame(int frameIndex)
+        {
+            ClearCellPosition(frameIndex);
+            ClearPosition(frameIndex);
+        }
+
+        /// <summary>
+        /// Sets position in the given frame by adding an entry to FramePositionAndBezier dictionary.
+        /// DOES NOT AUTOMATICALLY CALCULATE CELL POSITION, USE OVERLOAD METHOD WITH GRID PARAMETER TO DO SO!
+        /// </summary>
+        /// <param name="frame"></param>
+        /// <param name="position"></param>
+        /// <param name="bezierControl"></param>
+        public void SetPositionInFrame(int frame, SerializableVector3 position, SerializableVector3 bezierControl)
+        {
+            FramePositionAndBezier[frame] = new Tuple<SerializableVector3, SerializableVector3>(position, bezierControl);
+        }
+
+        public void SetPositionInFrameByCell(int frame, int cellIndex, float depth, SerializableVector3 bezierControl, Grid grid)
+        {
+            Vector2 pos = grid.CellIndexToRelativePosition(cellIndex);
+            Vector3 position = new Vector3(pos.x, pos.y, depth);
+            FramePositionAndBezier[frame] = new Tuple<SerializableVector3, SerializableVector3>(position, bezierControl);
+            SetCellIndex(frame, cellIndex);
+        }
+
+        /// <summary>
+        /// Sets position in frame by adding an entry to FramePositionAndBezier dictionary.
+        /// Also calculates cell position.
+        /// </summary>
+        /// <param name="frame"></param>
+        /// <param name="position"></param>
+        /// <param name="bezierControl"></param>
+        /// <param name="grid"></param>
+        public void SetPositionInFrame(int frame, SerializableVector3 position, SerializableVector3 bezierControl, Grid grid)
+        {
+            FramePositionAndBezier[frame] = new Tuple<SerializableVector3, SerializableVector3>(position, bezierControl);
+            SetCellIndex(frame, grid.RelativePositionToCellIndex(position.x, position.y));
+        }
+
+
+        /// <summary>
+        /// Sets in what cell the projectile is located in the given frame
+        /// </summary>
+        /// <param name="frame"></param>
+        /// <param name="cellIndex"></param>
+        public void SetCellIndex(int frame, int cellIndex)
+        {
+            cellPositionInFrame[frame] = cellIndex;
+        }
+
+        void ClearCellPosition(int frame)
+        {
+            cellPositionInFrame.Remove(frame);
+        }
+
+        void ClearPosition(int frame)
+        {
+            FramePositionAndBezier.Remove(frame);
+        }
         public ProjectileInstanceGUI(ProjectileGroupUI parent, VisualElement root, Vector3IntField positionField, int projectileInstanceID, int projectileGroupID, Color trailColor)
         {
             this.parent = parent;
