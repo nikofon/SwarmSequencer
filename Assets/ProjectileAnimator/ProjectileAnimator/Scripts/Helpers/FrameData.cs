@@ -103,6 +103,10 @@ namespace ProjectileAnimator
             this.z = z;
         }
 
+        public static SerializableVector3 operator -(SerializableVector3 a, SerializableVector3 b) => new SerializableVector3(a.x - b.x, a.y - b.y, a.z - b.z);
+        public static SerializableVector3 operator +(SerializableVector3 a, SerializableVector3 b) => new SerializableVector3(a.x + b.x, a.y + b.y, a.z + b.z);
+        public static SerializableVector3 operator /(SerializableVector3 a, float b) => new SerializableVector3(a.x / b, a.y / b, a.z / b);
+
         public Vector3 ScaleToVector3(float scale)
         {
             return scale * new Vector3(x, y, z);

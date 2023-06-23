@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 using System;
+using UnityEditor;
 
 namespace ProjectileAnimator
 {
@@ -21,7 +22,7 @@ namespace ProjectileAnimator
 
         public readonly SequenceCreator parent;
 
-        public Dictionary<int, ProjectileInstanceGUI> projectileInstances = new Dictionary<int, ProjectileInstanceGUI>();
+        public Dictionary<int, ProjectileInstanceUI> projectileInstances = new Dictionary<int, ProjectileInstanceUI>();
 
         VisualTreeAsset projectileInstanceAsset;
         Button showProjectielListButton;
@@ -81,23 +82,23 @@ namespace ProjectileAnimator
             projectileInstances.Remove(projectileIndex);
         }
 
-        public ProjectileInstanceGUI AddProjectileInstance()
+        public ProjectileInstanceUI AddProjectileInstance()
         {
             return AddProjectileInstance(FindFreeIndex());
         }
 
-        ProjectileInstanceGUI AddProjectileInstance(int projectileIndex)
+        ProjectileInstanceUI AddProjectileInstance(int projectileIndex)
         {
             VisualElement newInstance = projectileInstanceAsset.CloneTree();
-            newInstance.style.minHeight = new StyleLength(new Length(ProjectileInstanceGUI.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
-            newInstance.style.height = new StyleLength(new Length(ProjectileInstanceGUI.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
+            newInstance.style.minHeight = new StyleLength(new Length(ProjectileInstanceUI.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
+            newInstance.style.height = new StyleLength(new Length(ProjectileInstanceUI.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
             newInstance.Q<IntegerField>().value = projectileIndex;
-            var projInstance = new ProjectileInstanceGUI(this, newInstance, newInstance.Q<Vector3IntField>("ProjectilePositionField"), projectileIndex, projectileGroupID, trailColor);
+            var projInstance = new ProjectileInstanceUI(this, newInstance, newInstance.Q<Vector3IntField>("ProjectilePositionField"), projectileIndex, projectileGroupID, trailColor);
             projectileInstances.Add(projectileIndex, projInstance);
             if (projectilesShown)
             {
                 projectileInstanceContainer.Add(newInstance);
-                root.style.height = new StyleLength(new Length(root.resolvedStyle.height + ProjectileInstanceGUI.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
+                root.style.height = new StyleLength(new Length(root.resolvedStyle.height + ProjectileInstanceUI.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
             }
             else
             {
@@ -131,7 +132,7 @@ namespace ProjectileAnimator
                 {
                     projectileInstanceContainer.Add(i.Value.root);
                 }
-                root.style.height = new StyleLength(new Length(root.resolvedStyle.height + projectileInstances.Count * ProjectileInstanceGUI.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
+                root.style.height = new StyleLength(new Length(root.resolvedStyle.height + projectileInstances.Count * ProjectileInstanceUI.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
             }
             else
             {
@@ -139,15 +140,16 @@ namespace ProjectileAnimator
                 {
                     projectileInstanceContainer.Remove(i.Value.root);
                 }
-                root.style.height = new StyleLength(new Length(root.resolvedStyle.height - projectileInstances.Count * ProjectileInstanceGUI.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
+                root.style.height = new StyleLength(new Length(root.resolvedStyle.height - projectileInstances.Count * ProjectileInstanceUI.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
             }
             if (projectilesShown) showProjectielListButton.text = "Hide projectile list";
             else showProjectielListButton.text = "Show projectile list";
         }
     }
 
-    public class ProjectileInstanceGUI
+    public class ProjectileInstanceUI
     {
+        public bool useBezier = true;
         public static readonly Color NORMAL_BORDER_COLOR = new Color(0.4941176f, 0.4941176f, 0.4941176f);
         public static readonly Color SELECTED_BORDER_COLOR = new Color(0.04313726F, 0.7058824f, 0f);
         public const int BLOCK_PIXEL_HEIGHT = 100;
@@ -241,7 +243,23 @@ namespace ProjectileAnimator
         {
             FramePositionAndBezier.Remove(frame);
         }
-        public ProjectileInstanceGUI(ProjectileGroupUI parent, VisualElement root, Vector3IntField positionField, int projectileInstanceID, int projectileGroupID, Color trailColor)
+
+
+        public void ResetBezierPos(int frameIndex)
+        {
+            if (FramePositionAndBezier.ContainsKey(frameIndex + 1) && FramePositionAndBezier.ContainsKey(frameIndex))
+            {
+                Debug.Log($"Actually resetting bezier in {frameIndex}");
+                SerializableVector3 b = (FramePositionAndBezier[frameIndex + 1].Item1 + FramePositionAndBezier[frameIndex].Item1) / 2;
+                FramePositionAndBezier[frameIndex] =
+                new Tuple<SerializableVector3, SerializableVector3>(FramePositionAndBezier[frameIndex].Item1, b);
+            }
+            foreach (var v in FramePositionAndBezier)
+            {
+                Debug.Log($"{v.Key}: bezier {(Vector3)v.Value.Item2}");
+            }
+        }
+        public ProjectileInstanceUI(ProjectileGroupUI parent, VisualElement root, Vector3IntField positionField, int projectileInstanceID, int projectileGroupID, Color trailColor)
         {
             this.parent = parent;
             this.root = root;
@@ -265,6 +283,55 @@ namespace ProjectileAnimator
                 root.Q<VisualElement>("BorderContainerTwo"),
                 root.Q<VisualElement>("BorderContainerThree"),
         };
+        }
+    }
+
+    public class ButtonGroup
+    {
+        List<Button> Buttons;
+
+        public int Value { get => m_value; set { OnValueChange?.Invoke(m_value, value); m_value = value; } }
+        private int m_value;
+        public Color selectedBGColor;
+
+        public Color standartBGColor;
+
+        public event Action<int, int> OnValueChange;
+
+        public ButtonGroup(Color selectedBGColor, Color standartBGColor, int initValue = 0, params Button[] buttons)
+        {
+            this.selectedBGColor = selectedBGColor;
+            this.standartBGColor = standartBGColor;
+            Buttons = new List<Button>(buttons);
+            for (int i = 0; i < Buttons.Count; i++)
+            {
+                int buttonValue = i;
+                Buttons[i].clicked += () => SetValue(buttonValue);
+            }
+            OnValueChange += UpdateUI;
+            SetValue(initValue);
+        }
+
+        void AddButtonToGroup(Button button)
+        {
+            Buttons.Add(button);
+            int buttonValue = Buttons.Count - 1;
+            button.clicked += () => SetValue(buttonValue);
+        }
+
+        void SetValue(int newValue)
+        {
+            if (newValue < Buttons.Count)
+            {
+                Value = newValue;
+            }
+            else throw new IndexOutOfRangeException("You are trying to assign a value which is out of range");
+        }
+
+        void UpdateUI(int oldValue, int newValue)
+        {
+            Buttons[oldValue].style.backgroundColor = standartBGColor;
+            Buttons[newValue].style.backgroundColor = selectedBGColor;
         }
     }
 }

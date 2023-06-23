@@ -37,6 +37,12 @@
     <ui:Label text="Projectile groups" display-tooltip-when-elided="true" style="flex-grow: 0; flex-shrink: 0; min-width: auto; min-height: 24px; -unity-text-align: middle-center; font-size: 17px; border-top-width: 1px; border-bottom-width: 1px; border-left-color: rgb(245, 245, 245); border-right-color: rgb(245, 245, 245); border-top-color: rgb(245, 245, 245); border-bottom-color: rgb(245, 245, 245); -unity-font-style: bold; justify-content: center; align-items: center; white-space: normal; top: auto; height: 24px;" />
     <ui:VisualElement name="SelectedProjectileInfo" style="height: 160px; flex-direction: row; flex-shrink: 0; flex-grow: 0;">
         <ui:VisualElement style="flex-grow: 1; border-right-width: 2px; border-left-color: rgb(128, 128, 128); border-right-color: rgb(128, 128, 128); border-top-color: rgb(128, 128, 128); border-bottom-color: rgb(128, 128, 128);">
+            <uie:Toolbar>
+                <ui:Label text="Edit mode:" display-tooltip-when-elided="true" style="-unity-text-align: middle-left;" />
+                <ui:Button display-tooltip-when-elided="true" enable-rich-text="false" name="selectEditModeButton" style="width: 21px; background-image: url(&apos;project://database/Assets/ProjectileAnimator/ProjectileAnimator/Textures/icons8-edit-24.png?fileID=2800000&amp;guid=dd181fde03aca2accb1b3b293ef54b78&amp;type=3#icons8-edit-24&apos;); height: 21px; margin-left: 0; margin-right: 0; margin-top: 0; margin-bottom: 0; padding-top: 2px; padding-bottom: 2px; padding-left: 2px; padding-right: 2px;" />
+                <ui:Button display-tooltip-when-elided="true" enable-rich-text="false" name="selectEditBezierModeButton" style="width: 21px; background-image: url(&apos;project://database/Assets/ProjectileAnimator/ProjectileAnimator/Textures/BezierEditButton.png?fileID=2800000&amp;guid=00f3e9e2d482b6499b6e08c857da6797&amp;type=3#BezierEditButton&apos;); height: 21px; margin-left: 0; margin-right: 0; margin-top: 0; margin-bottom: 0; padding-top: 2px; padding-bottom: 2px; padding-left: 2px; padding-right: 2px;" />
+                <ui:Button display-tooltip-when-elided="true" enable-rich-text="false" name="selectEraserModeButton" style="width: 21px; background-image: url(&apos;project://database/Assets/ProjectileAnimator/ProjectileAnimator/Textures/Eraser.png?fileID=2800000&amp;guid=1181f7189497f2110afacfb25b1c6e2c&amp;type=3#Eraser&apos;); height: 21px; margin-left: 0; margin-right: 0; margin-top: 0; margin-bottom: 0; padding-top: 2px; padding-bottom: 2px; padding-left: 2px; padding-right: 2px;" />
+            </uie:Toolbar>
             <ui:VisualElement style="height: 56px; flex-shrink: 0;">
                 <ui:Label text="Selected projectile instance:" display-tooltip-when-elided="true" style="font-size: 18px;" />
                 <ui:VisualElement style="flex-direction: row; height: 32px;">
@@ -44,7 +50,7 @@
                     <ui:Label text="-" display-tooltip-when-elided="true" name="GroupIndexCounter" style="font-size: 24px;" />
                     <ui:Label text="     Instance index:" display-tooltip-when-elided="true" style="font-size: 12px; -unity-text-align: middle-left;" />
                     <ui:Label text="-" display-tooltip-when-elided="true" name="InstanceIndexCounter" style="font-size: 24px;" />
-                    <uie:ColorField label="Trail color" value="RGBA(0.000, 1.000, 1.000, 1.000)" name="SelectedProjectileColorField" style="width: 199px; justify-content: center; align-items: stretch; flex-direction: column; height: 32px; padding-left: 5px; padding-right: 5px; padding-top: 5px; padding-bottom: 5px;" />
+                    <uie:ColorField label="Trail color" value="RGBA(0.000, 1.000, 1.000, 1.000)" name="SelectedProjectileColorField" style="width: 226px; justify-content: space-between; align-items: center; flex-direction: row; height: 32px; padding-left: 0; padding-right: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0;" />
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement style="flex-grow: 1; flex-direction: row;">

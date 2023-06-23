@@ -6,20 +6,38 @@ namespace ProjectileAnimator
 {
     public static class MathHelper
     {
-        public static Vector3 BezierInterpolation(Vector3 pZero, Vector3 pTwo, Vector3 pOne, float t)
+        public static Vector3 NaNVector3 = new Vector3(float.NaN, float.NaN, float.NaN);
+        /// <summary>
+        /// Basic bezier interpolation between two points with one control point
+        /// </summary>
+        /// <param name="startPoint"></param>
+        /// <param name="endPoint"></param>
+        /// <param name="control"></param>
+        /// <param name="t"></param>
+        /// <returns></returns>
+        public static Vector3 BezierInterpolation(Vector3 startPoint, Vector3 endPoint, Vector3 control, float t)
         {
-            Vector3 pQZero = Vector3.Lerp(pZero, pOne, t);
-            Vector3 pQOne = Vector3.Lerp(pOne, pTwo, t);
+            Vector3 pQZero = Vector3.Lerp(startPoint, control, t);
+            Vector3 pQOne = Vector3.Lerp(control, endPoint, t);
             return Vector3.Lerp(pQZero, pQOne, t);
         }
 
-        public static Vector3[] BezierAproximation(Vector3 pZero, Vector3 pTwo, Vector3 pOne, float step = 0.02f)
+        /// <summary>
+        /// Approximates a bezier curve
+        /// </summary>
+        /// <param name="startPoint">Starting point</param>
+        /// <param name="endPoint">End point</param>
+        /// <param name="control">Bezier control</param>
+        /// <param name="step">Approximation precision</param>
+        /// <returns>Array of approximation points</returns>
+
+        public static Vector3[] BezierAproximation(Vector3 startPoint, Vector3 endPoint, Vector3 control, float step = 0.02f)
         {
             int length = Mathf.CeilToInt(1 / step);
             Vector3[] result = new Vector3[length];
             for (int i = 0; i < length; i++)
             {
-                result[i] = BezierInterpolation(pZero, pTwo, pOne, Mathf.Min(1, i * step));
+                result[i] = BezierInterpolation(startPoint, endPoint, control, Mathf.Min(1, i * step));
             }
             return result;
         }
@@ -97,6 +115,7 @@ namespace ProjectileAnimator
         }
         float m_cellSize;
         public Matrix4x4 TRS { get { return m_transformMatrix; } }
+        public Matrix4x4 TRSInverse { get { return TRS.inverse; } }
         Matrix4x4 m_transformMatrix;
 
         public Grid(Vector2Int gridSize, float cellSize, Vector3 gridOrigin, Quaternion gridRotation)
@@ -110,6 +129,11 @@ namespace ProjectileAnimator
             Center = new Vector2((gridSize.x - 1) / 2f, (gridSize.y - 1) / 2f);
         }
 
+        public Vector3 RelativeToWorldPos(Vector3 position)
+        {
+            return TRS.MultiplyPoint3x4(position);
+        }
+
         public Vector2 CellIndexToRelativePosition(int cellIndex)
         {
             return new Vector2(cellIndex / GridDimensions.y, cellIndex % GridDimensions.y) - Center;
@@ -119,6 +143,11 @@ namespace ProjectileAnimator
         {
             Vector2 pos = new Vector2(x, y) + Center;
             return (int)(pos.x * GridDimensions.y + pos.y);
+        }
+
+        public Vector3 WorldToRelativePos(Vector3 position)
+        {
+            return TRSInverse.MultiplyPoint3x4(position);
         }
 
         public int RelativePositionToCellIndex(Vector2 position)

@@ -40,7 +40,7 @@ namespace ProjectileAnimator
         int frameCount = 0;
         int selectedFrame;
 
-        public ProjectileInstanceGUI SelectedProjectileInstance { get; private set; }
+        public ProjectileInstanceUI SelectedProjectileInstance { get; private set; }
 
 
         //Visual Elements
@@ -52,12 +52,13 @@ namespace ProjectileAnimator
         IntegerField projectileGroupIntField;
         SliderInt gridDepthSlider;
         SliderInt selectedFrameSlider;
-        Vector3IntField gridSizeField;
+        Vector3IntField gridDimensionsField;
         Vector3Field gridOriginField;
         Vector3Field gridRotationField;
         FloatField gridCellSizeField;
-        Color editGridOffButtonColor = new Color(0.7372549f, 0.1529412f, 0.1882353f);
-        Color editGridOnButtonColor = new Color(0.1529412f, 0.7372549f, 0.2303215f);
+        public readonly static Color indicatingRed = new Color(0.7372549f, 0.1529412f, 0.1882353f);
+        public readonly static Color indicatingGreen = new Color(0.1529412f, 0.7372549f, 0.2303215f);
+        public readonly static Color neutralGray = new Color(0.345098f, 0.345098f, 0.345098f);
 
         ScrollView projectileGroupScrollView;
 
@@ -79,9 +80,17 @@ namespace ProjectileAnimator
         Vector3Field selectedInstPosInPrevFrame;
         Vector3Field selectedInstPosInCurrentFrame;
         Vector3Field selectedInstPosInNextFrame;
+        public ModificationMode CurrentMode { get; private set; }
 
+        //Edit mode
+        ButtonGroup selectModeButtonGroup;
 
-        event Action<int, int> OnFrameChanged;
+        public enum ModificationMode
+        {
+            Normal,
+            Bezier,
+            Eraser
+        }
 
 
         [MenuItem("/Window/ProjectileAnimator/SequenceCreator")]
@@ -111,17 +120,18 @@ namespace ProjectileAnimator
             gridDepthSlider.RegisterValueChangedCallback((v) => { gridDepthLevel = v.newValue; SceneView.RepaintAll(); });
             gridDepthSlider.highValue = gridDimensions.z;
 
-            gridSizeField = rootVisualElement.Q<Vector3IntField>("GridDimensions");
-            gridSizeField.value = (Vector3Int)gridDimensions;
-            gridSizeField.RegisterValueChangedCallback((v) =>
+            gridDimensionsField = rootVisualElement.Q<Vector3IntField>("GridDimensions");
+            gridDimensionsField.value = (Vector3Int)gridDimensions;
+            gridDimensionsField.RegisterValueChangedCallback((v) =>
             {
                 gridDimensions.x = Mathf.Max(2, v.newValue.x);
                 gridDimensions.y = Mathf.Max(2, v.newValue.y);
                 gridDimensions.z = Mathf.Max(0, v.newValue.z);
                 gridDepthSlider.highValue = gridDimensions.z;
-                gridSizeField.value = gridDimensions;
+                gridDimensionsField.value = gridDimensions;
                 SceneView.RepaintAll();
             });
+            gridDimensionsField.MakeDelayed();
             gridRotationField = rootVisualElement.Q<Vector3Field>("GridRotationField");
             gridRotationField.MakeDelayed();
             gridRotationField.value = gridRotation.eulerAngles;
@@ -156,7 +166,7 @@ namespace ProjectileAnimator
             grid = new Grid((Vector2Int)gridDimensions, gridCellSize, gridOrigin, gridRotation);
 
             var tb = rootVisualElement.Q<ToolbarButton>("EnableGridEditingButton");
-            tb.clicked += () => { modifyingGridInSceneView = !modifyingGridInSceneView; tb.style.backgroundColor = modifyingGridInSceneView ? editGridOnButtonColor : editGridOffButtonColor; SceneView.RepaintAll(); };
+            tb.clicked += () => { modifyingGridInSceneView = !modifyingGridInSceneView; tb.style.backgroundColor = modifyingGridInSceneView ? indicatingGreen : indicatingRed; SceneView.RepaintAll(); };
 
             #endregion
             #region Frame settings
@@ -248,6 +258,10 @@ namespace ProjectileAnimator
             selectedProjectilePreview = rootVisualElement.Q<IMGUIContainer>("selectedProjectilePreview");
             #endregion
 
+            selectModeButtonGroup = new ButtonGroup(indicatingGreen, neutralGray, 0,
+                rootVisualElement.Q<Button>("selectEditModeButton"), rootVisualElement.Q<Button>("selectEditBezierModeButton"), rootVisualElement.Q<Button>("selectEraserModeButton"));
+            selectModeButtonGroup.OnValueChange += (oldValue, newValue) => ChangeModificationModeWithoutNotify((ModificationMode)newValue);
+
             rootVisualElement.Q<Button>("AddProjectileGroupButton").clicked += () =>
             {
                 AddNewProjectileGroupContainer(projectileGroupIntField.value);
@@ -262,24 +276,22 @@ namespace ProjectileAnimator
 
             SceneView.duringSceneGui += DuringSceneGUI;
 
-            AddFrame(0, new Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>>());
-            SelectFrame(0);
-            UpdateFrameCountCounterUI();
-            UpdateCurrentFrameCounterUI();
+            if (frameCount == 0)
+            {
+                AddFrame(0, new Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>>());
+                SelectFrame(0);
+                UpdateFrameCountCounterUI();
+                UpdateCurrentFrameCounterUI();
+            }
         }
 
         void ProjectileAssetPreviewIMGUI()
         {
-
             if (selectedInstancePrefab != null)
-            {
-
                 selectedInstancePrefabEditor.OnInteractivePreviewGUI(GUILayoutUtility.GetRect(150, 150), null);
-            }
-
         }
 
-        public void SelectProjectileInstance(ProjectileInstanceGUI instance)
+        public void SelectProjectileInstance(ProjectileInstanceUI instance)
         {
             UpdateSelectedInstanceUI(instance);
             SelectedProjectileInstance = instance;
@@ -290,16 +302,16 @@ namespace ProjectileAnimator
             UpdateSelectedInstanceUI(SelectedProjectileInstance);
         }
 
-        void UpdateSelectedInstanceUI(ProjectileInstanceGUI selected)
+        void UpdateSelectedInstanceUI(ProjectileInstanceUI selected)
         {
             if (SelectedProjectileInstance != null)
             {
                 foreach (var v in SelectedProjectileInstance.borderElements)
                 {
-                    v.style.borderTopColor = ProjectileInstanceGUI.NORMAL_BORDER_COLOR;
-                    v.style.borderLeftColor = ProjectileInstanceGUI.NORMAL_BORDER_COLOR;
-                    v.style.borderBottomColor = ProjectileInstanceGUI.NORMAL_BORDER_COLOR;
-                    v.style.borderRightColor = ProjectileInstanceGUI.NORMAL_BORDER_COLOR;
+                    v.style.borderTopColor = ProjectileInstanceUI.NORMAL_BORDER_COLOR;
+                    v.style.borderLeftColor = ProjectileInstanceUI.NORMAL_BORDER_COLOR;
+                    v.style.borderBottomColor = ProjectileInstanceUI.NORMAL_BORDER_COLOR;
+                    v.style.borderRightColor = ProjectileInstanceUI.NORMAL_BORDER_COLOR;
                 }
             }
             if (selected == null)
@@ -311,6 +323,9 @@ namespace ProjectileAnimator
                 selectedInstancePrefab = null;
                 selectedInstancePrefabEditor = null;
                 selectedProjectilePrefabField.value = null;
+                selectedInstPosInCurrentFrame.SetValueWithoutNotify(MathHelper.NaNVector3);
+                selectedInstPosInNextFrame.SetValueWithoutNotify(MathHelper.NaNVector3);
+                selectedInstPosInPrevFrame.SetValueWithoutNotify(MathHelper.NaNVector3);
                 return;
             }
             selectedProjectileGroupLabel.text = selected.projectileInstanceID.ProjectilePrefabId.ToString();
@@ -333,10 +348,10 @@ namespace ProjectileAnimator
                 selectedInstPosInNextFrame.SetValueWithoutNotify(new Vector3(float.NaN, float.NaN, float.NaN));
             foreach (var v in selected.borderElements)
             {
-                v.style.borderTopColor = ProjectileInstanceGUI.SELECTED_BORDER_COLOR;
-                v.style.borderLeftColor = ProjectileInstanceGUI.SELECTED_BORDER_COLOR;
-                v.style.borderBottomColor = ProjectileInstanceGUI.SELECTED_BORDER_COLOR;
-                v.style.borderRightColor = ProjectileInstanceGUI.SELECTED_BORDER_COLOR;
+                v.style.borderTopColor = ProjectileInstanceUI.SELECTED_BORDER_COLOR;
+                v.style.borderLeftColor = ProjectileInstanceUI.SELECTED_BORDER_COLOR;
+                v.style.borderBottomColor = ProjectileInstanceUI.SELECTED_BORDER_COLOR;
+                v.style.borderRightColor = ProjectileInstanceUI.SELECTED_BORDER_COLOR;
             }
 
         }
@@ -353,8 +368,7 @@ namespace ProjectileAnimator
 
         void SelectFrame(int frameIndex)
         {
-            Debug.Log($"selecting frame {frameIndex}");
-            if (frameIndex >= frameCount) return;
+            if (frameIndex >= frameCount || frameIndex < 0) return;
             selectedFrame = frameIndex;
             UpdateCurrentFrameCounterUI();
             if (SelectedProjectileInstance != null)
@@ -362,21 +376,25 @@ namespace ProjectileAnimator
         }
 
 
-        void AddProjectileInfoToFrame(int frameIndex, ProjectileInstanceGUI key, SerializableVector3 position, SerializableVector3 bezierControl)
+        void AddInstanceInfoToFrame(int frameIndex, ProjectileInstanceUI key, SerializableVector3 position, SerializableVector3 bezierControl)
         {
             key.SetPositionInFrame(frameIndex, position, bezierControl, grid);
+            if (key.useBezier && key.FramePositionAndBezier.ContainsKey(frameIndex - 1) && float.IsNaN(key.FramePositionAndBezier[frameIndex - 1].Item2.x))
+            {
+                Debug.Log($"resetting bezier in {frameIndex - 1}");
+                key.ResetBezierPos(frameIndex - 1);
+            }
             UpdateSelectedInstanceUI();
         }
 
-        void AddProjectileInfoToFrame(int frameIndex, ProjectileInstanceGUI key, int cellPosition, int depth, SerializableVector3 bezierControl)
+        void AddInstanceInfoToFrame(int frameIndex, ProjectileInstanceUI key, int cellPosition, int depth, SerializableVector3 bezierControl)
         {
             key.SetPositionInFrameByCell(frameIndex, cellPosition, depth, bezierControl, grid);
+            if (key.useBezier && key.FramePositionAndBezier.ContainsKey(frameIndex - 1) && key.FramePositionAndBezier[frameIndex - 1].Item2.x == float.NaN)
+            {
+                key.ResetBezierPos(frameIndex - 1);
+            }
             UpdateSelectedInstanceUI();
-        }
-
-        void RemoveProjectileInfoFromFrame(int frameIndex, ProjectileInstanceGUI key)
-        {
-            key.ClearFrame(frameIndex);
         }
 
         VisualElement AddNewProjectileGroupContainer(int containerIndex)
@@ -416,19 +434,20 @@ namespace ProjectileAnimator
         void DeleteProjectileInstance(ProjectileGroupUI group, int projectileInstanceIndex)
         {
             if (SelectedProjectileInstance == group.projectileInstances[projectileInstanceIndex]) SelectProjectileInstance(null);
-            group.root.style.height = new StyleLength(new Length(group.root.resolvedStyle.height - ProjectileInstanceGUI.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
+            group.root.style.height = new StyleLength(new Length(group.root.resolvedStyle.height - ProjectileInstanceUI.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
             group.DeleteProjectileInstance(projectileInstanceIndex);
         }
 
         void AddFrame(int frameIndex, Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>> projectilePositionData)
         {
-            Debug.Log($"Adding frame {frameIndex} framecount: {frameCount}");
             if (frameIndex != frameCount)
             {
                 ShiftFramesInProjectileInstances(frameIndex, 1);
             }
+            ClearFrame(frameIndex);
             frameCount++;
             SelectFrame(frameIndex);
+            SceneView.RepaintAll();
         }
 
         void UpdateFrameCountCounterUI()
@@ -445,6 +464,18 @@ namespace ProjectileAnimator
 
         void DeleteFrame(int frameIndex)
         {
+            ClearFrame(frameIndex);
+            if (frameIndex != frameCount - 1)
+            {
+                ShiftFramesInProjectileInstances(frameIndex + 1, -1);
+            }
+            frameCount--;
+            SelectFrame(frameIndex - 1);
+            SceneView.RepaintAll();
+        }
+
+        void ClearFrame(int frameIndex)
+        {
             foreach (var prjGrp in projectileGroupContainerDict)
             {
                 foreach (var prj in prjGrp.Value.projectileInstances)
@@ -455,14 +486,6 @@ namespace ProjectileAnimator
                     }
                 }
             }
-            if (frameIndex != frameCount - 1)
-            {
-                ShiftFramesInProjectileInstances(frameIndex, -1);
-                SelectFrame(frameIndex - 1);
-            }
-            else
-                SelectFrame(frameIndex);
-            frameCount--;
         }
 
         /// <summary>
@@ -495,9 +518,35 @@ namespace ProjectileAnimator
                         else
                             prj.Value.SetPositionInFrame(keys[i] + offset, prj.Value.FramePositionAndBezier[keys[i]].Item1, prj.Value.FramePositionAndBezier[keys[i]].Item2, grid);
                     }
-                    prj.Value.ClearFrame(startingFrame);
                 }
             }
+        }
+
+        void ModifyBezierControls(int frameIndex)
+        {
+            foreach (var prjGrp in projectileGroupContainerDict)
+            {
+                foreach (var prj in prjGrp.Value.projectileInstances)
+                {
+                    if (!prj.Value.useBezier) continue;
+                    if (prj.Value.FramePositionAndBezier.ContainsKey(frameIndex))
+                    {
+                        if (prj.Value.FramePositionAndBezier.ContainsKey(frameIndex + 1) && !float.IsNaN(prj.Value.FramePositionAndBezier[frameIndex].Item2.x))
+                        {
+                            prj.Value.FramePositionAndBezier[frameIndex] =
+                            new Tuple<SerializableVector3, SerializableVector3>(prj.Value.FramePositionAndBezier[frameIndex].Item1,
+                            grid.WorldToRelativePos(Handles.PositionHandle(grid.RelativeToWorldPos(prj.Value.FramePositionAndBezier[frameIndex].Item2), Quaternion.identity)));
+                        }
+                        if (prj.Value.FramePositionAndBezier.ContainsKey(frameIndex - 1) && !float.IsNaN(prj.Value.FramePositionAndBezier[frameIndex - 1].Item2.x))
+                        {
+                            prj.Value.FramePositionAndBezier[frameIndex - 1] =
+                            new Tuple<SerializableVector3, SerializableVector3>(prj.Value.FramePositionAndBezier[frameIndex - 1].Item1,
+                            grid.WorldToRelativePos(Handles.PositionHandle(grid.RelativeToWorldPos(prj.Value.FramePositionAndBezier[frameIndex - 1].Item2), Quaternion.identity)));
+                        }
+                    }
+                }
+            }
+            RadioButton b = new RadioButton();
         }
 
 
@@ -506,6 +555,7 @@ namespace ProjectileAnimator
             var TRSMatrix = Matrix4x4.TRS(zero, gridRotation, cellSize * Vector3.one);
             return TRSMatrix;
         }
+
         void DuringSceneGUI(SceneView sceneView)
         {
             if (modifyingGridInSceneView)
@@ -524,6 +574,10 @@ namespace ProjectileAnimator
             {
                 grid = new Grid((Vector2Int)gridDimensions, CalculateTRS(gridCellSize, this.gridOrigin, this.gridRotation));
                 gridPointsScreenPosition = FindWorldToScreenSpaceProjection(sceneView, grid.Cells);
+            }
+            if (CurrentMode == ModificationMode.Bezier)
+            {
+                ModifyBezierControls(selectedFrame);
             }
             switch (Event.current.type)
             {
@@ -552,15 +606,18 @@ namespace ProjectileAnimator
                     {
                         if (Event.current.button == 0)
                         {
-                            if (SelectedProjectileInstance != null)
+                            if (SelectedProjectileInstance != null && CurrentMode == ModificationMode.Normal)
                             {
                                 Vector2 mouseViewportPosition = sceneView.camera.ScreenToViewportPoint(Event.current.mousePosition);
                                 Vector2 mousePositionCorrected = new Vector2(mouseViewportPosition.x, 1 - mouseViewportPosition.y);
                                 int gridCell = MathHelper.FindCellContainingPointIgnoreZ(mousePositionCorrected, gridPointsScreenPosition);
                                 if (gridCell != -1)
                                 {
-                                    AddProjectileInfoToFrame(selectedFrame, SelectedProjectileInstance,
-                                    gridCell, gridDepthLevel, new SerializableVector3(1, 1, 1));
+                                    var projRelativePosition = grid.CellIndexToRelativePosition(gridCell).ToVector3(gridDepthLevel);
+                                    SerializableVector3 bezier = SelectedProjectileInstance.FramePositionAndBezier.ContainsKey(selectedFrame + 1) ? (SelectedProjectileInstance.FramePositionAndBezier[selectedFrame + 1].Item1 - (SerializableVector3)projRelativePosition) / 2 :
+                                        new SerializableVector3(float.NaN, 0, 0);
+                                    AddInstanceInfoToFrame(selectedFrame, SelectedProjectileInstance,
+                                    projRelativePosition, bezier);
                                 }
                             }
                         }
@@ -571,40 +628,53 @@ namespace ProjectileAnimator
                             int gridCell = MathHelper.FindCellContainingPointIgnoreZ(mousePositionCorrected, gridPointsScreenPosition);
                             if (gridCell != -1)
                             {
-                                ProjectileInstanceGUI keyToRemove = null;
-                                foreach (var v in projectileGroupContainerDict)
+                                if (CurrentMode == ModificationMode.Eraser)
                                 {
-                                    foreach (var vv in v.Value.projectileInstances)
+                                    foreach (var v in projectileGroupContainerDict)
                                     {
-                                        if (vv.Value.GetCellIndex(selectedFrame) == gridCell)
+                                        foreach (var vv in v.Value.projectileInstances)
                                         {
-                                            keyToRemove = vv.Value; break;
+                                            if (vv.Value.GetCellIndex(selectedFrame) == gridCell)
+                                            {
+                                                vv.Value.ClearFrame(selectedFrame);
+                                            }
                                         }
                                     }
                                 }
-                                if (keyToRemove != null)
+                                else if (CurrentMode == ModificationMode.Normal && SelectedProjectileInstance != null)
                                 {
-                                    RemoveProjectileInfoFromFrame(selectedFrame, keyToRemove);
+                                    if (SelectedProjectileInstance.GetCellIndex(selectedFrame) == gridCell)
+                                    {
+                                        SelectedProjectileInstance.ClearFrame(selectedFrame);
+                                    }
                                 }
                             }
                         }
                     }
                     break;
                 case EventType.KeyDown:
-                    if (Event.current.keyCode == KeyCode.D)
+                    switch (Event.current.keyCode)
                     {
-                        SelectFrame(selectedFrame + 1);
-                    }
-                    else if (Event.current.keyCode == KeyCode.A)
-                    {
-                        if (selectedFrame - 1 >= 0)
-                        {
+                        case KeyCode.D:
+                            SelectFrame(selectedFrame + 1);
+                            break;
+                        case KeyCode.A:
                             SelectFrame(selectedFrame - 1);
-                        }
+                            break;
                     }
                     break;
             }
 
+        }
+
+        public void ChangeModificationModeWithoutNotify(ModificationMode mode)
+        {
+            CurrentMode = mode;
+        }
+
+        public void ChangerModificationMode(ModificationMode mode)
+        {
+            selectModeButtonGroup.Value = (int)mode;
         }
 
         void DrawFramesOnGrid(int frameToDraw, float meshSize, float meshSizeDecay, int lookForwardAmount = 1, int lookBackwardsAmount = 1)
@@ -613,15 +683,16 @@ namespace ProjectileAnimator
             DrawFramesRecursively(frameToDraw, null, lookBackwardsAmount, true, -1, meshSize, meshSizeDecay);
         }
 
-        void DrawFramesRecursively(int frameToDraw, Dictionary<ProjectileKey, Vector3> connexionPositions, int propogationAmount, bool skipFirstDraw, int direction, float meshSize, float meshSizeDecay)
+        void DrawFramesRecursively(int frameToDraw, Dictionary<ProjectileKey, Tuple<Vector3, Vector3>> connexionPositions, int propogationAmount, bool skipFirstDraw, int direction, float meshSize, float meshSizeDecay)
         {
-            Dictionary<ProjectileKey, Vector3> projPositions = new Dictionary<ProjectileKey, Vector3>();
+            Dictionary<ProjectileKey, Tuple<Vector3, Vector3>> projPositions = new Dictionary<ProjectileKey, Tuple<Vector3, Vector3>>();
             foreach (var prjGrp in projectileGroupContainerDict)
             {
                 foreach (var prj in prjGrp.Value.projectileInstances)
                 {
                     if (!prj.Value.visible || !prj.Value.FramePositionAndBezier.ContainsKey(frameToDraw)) continue;
-                    Vector3 thisFramePos = grid.TRS.MultiplyPoint3x4((Vector3)prj.Value.FramePositionAndBezier[frameToDraw].Item1);
+                    Vector3 thisFramePos = grid.RelativeToWorldPos(prj.Value.FramePositionAndBezier[frameToDraw].Item1);
+                    Vector3 thisFrameBezier = grid.RelativeToWorldPos(prj.Value.FramePositionAndBezier[frameToDraw].Item2);
                     if (!skipFirstDraw)
                     {
                         Handles.color = prj.Value.trailColor;
@@ -630,15 +701,20 @@ namespace ProjectileAnimator
                         Handles.Label(thisFramePos, (frameToDraw + 1).ToString());
                         Handles.EndGUI();
                         if (connexionPositions != null && connexionPositions.ContainsKey(prj.Value.projectileInstanceID))
-                            Handles.DrawAAPolyLine(5f, thisFramePos, connexionPositions[prj.Value.projectileInstanceID]);
+                        {
+                            Vector3 bezierToUse = direction == -1 ? thisFrameBezier : connexionPositions[prj.Value.projectileInstanceID].Item2;
+                            Handles.DrawAAPolyLine(5f,
+                                MathHelper.BezierAproximation(thisFramePos, connexionPositions[prj.Value.projectileInstanceID].Item1, bezierToUse));
+                            //Handles.DrawAAPolyLine(5f, thisFramePos, connexionPositions[prj.Value.projectileInstanceID].Item1);
+
+                        }
                     }
-                    projPositions.Add(prj.Value.projectileInstanceID, thisFramePos);
+                    projPositions.Add(prj.Value.projectileInstanceID, new Tuple<Vector3, Vector3>(thisFramePos, thisFrameBezier));
                 }
             }
-            if (propogationAmount != 0)
+            if (propogationAmount != 0 && frameToDraw + direction < frameCount && frameToDraw + direction >= 0)
             {
-                if (frameToDraw + direction >= 0 && frameToDraw + direction < frameCount)
-                    DrawFramesRecursively(frameToDraw + direction, projPositions, propogationAmount - 1, false, direction, meshSizeDecay * meshSize, meshSizeDecay);
+                DrawFramesRecursively(frameToDraw + direction, projPositions, propogationAmount - 1, false, direction, meshSizeDecay * meshSize, meshSizeDecay);
             }
         }
 

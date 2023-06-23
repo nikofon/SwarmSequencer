@@ -44,6 +44,24 @@ namespace ProjectileAnimator
 
             return v3;
         }
+        public static Vector3IntField MakeDelayed(this Vector3IntField v3)
+        {
+
+            var xInput = v3.Q<IntegerField>("unity-x-input");
+            xInput.isDelayed = true;
+
+            var yInput = v3.Q<IntegerField>("unity-y-input");
+            yInput.isDelayed = true;
+
+            var zInput = v3.Q<IntegerField>("unity-z-input");
+            zInput.isDelayed = true;
+
+            return v3;
+        }
+        public static Vector3 ToVector3(this Vector2 v2, float z)
+        {
+            return new Vector3(v2.x, v2.y, z);
+        }
     }
 }
 

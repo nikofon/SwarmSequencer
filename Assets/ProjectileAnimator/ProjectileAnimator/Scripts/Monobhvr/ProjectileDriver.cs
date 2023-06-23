@@ -630,7 +630,7 @@ namespace ProjectileAnimator
         public float t;
         public void Execute(int index)
         {
-            if (float.IsPositiveInfinity(bezierInterpolationPoints[index].x))
+            if (float.IsNaN(bezierInterpolationPoints[index].x))
             {
                 positions[index] = Vector3.Lerp(transform.MultiplyPoint(originalPositions[index]), transform.MultiplyPoint(targets[index]), t);
             }
