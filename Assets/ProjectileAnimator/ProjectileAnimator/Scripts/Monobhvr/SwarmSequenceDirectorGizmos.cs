@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using SwarmSequencer.EditorTools;
+using SwarmSequencer.MathTools;
 
 #if UNITY_EDITOR
-namespace ProjectileAnimator
+namespace SwarmSequencer
 {
-    public partial class ProjectileDriver
+    public partial class SwarmSequenceDirector
     {
         [SerializeField] Vector3Int GridSize;
 
@@ -25,7 +27,6 @@ namespace ProjectileAnimator
         public Dictionary<ProjectileKey, List<Vector3>> GetPaths()
         {
             Dictionary<ProjectileKey, List<Vector3>> res = new Dictionary<ProjectileKey, List<Vector3>>();
-            if (FrameDatas == null) FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text);
             foreach (var data in FrameDatas)
             {
                 foreach (var pos in data.ProjectilePositionData)

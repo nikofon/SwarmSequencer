@@ -54,12 +54,16 @@
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement style="flex-grow: 1; flex-direction: row;">
-                <ui:VisualElement style="width: 70%; height: 100%; justify-content: space-between;">
+                <ui:VisualElement name="positionControl" style="width: 70%; height: 100%; justify-content: space-between; visibility: visible; display: flex;">
                     <uie:Vector3Field label="Position in prev. frame" name="selectedInstPosInPrevFrame" />
-                    <uie:Vector3Field label="Position in current frame" name="selectedInstPosInCurrentFrame" />
+                    <uie:Vector3Field label="Position in current frame" name="selectedPosInCurrentFrame" />
                     <uie:Vector3Field label="Position in next frame" name="selectedInstPosInNextFrame" />
                 </ui:VisualElement>
-                <ui:VisualElement style="width: 30%; height: 100%;">
+                <ui:VisualElement name="bezierControl" style="width: 70%; height: 100%; justify-content: space-around; visibility: visible; display: none; opacity: 1;">
+                    <uie:Vector3Field label="Bezier previous to current" name="bezierPrevFrame" />
+                    <uie:Vector3Field label="Bezier current to next" name="bezierCurrentFrame" />
+                </ui:VisualElement>
+                <ui:VisualElement style="width: 30%; height: 100%; display: flex;">
                     <uie:ObjectField label="Projectile Prefab" type="UnityEngine.GameObject, UnityEngine.CoreModule" allow-scene-objects="false" name="SelectedInstancePrefabField" style="flex-direction: column; margin-top: 5px;" />
                     <ui:Button text="Clear selection" display-tooltip-when-elided="true" name="ClearInstanceSelectionButton" style="flex-grow: 1; padding-bottom: 5px; padding-top: 5px; font-size: 16px; -unity-font-style: bold;" />
                 </ui:VisualElement>
@@ -73,6 +77,6 @@
             <uie:IntegerField label="Group Index" value="0" name="ProjectileGroupIndexField" style="align-items: auto; justify-content: flex-start; flex-grow: 0.3; flex-basis: 50%; flex-shrink: 0; font-size: 14px;" />
         </ui:VisualElement>
         <ui:ScrollView name="ProjectileGroupsScrollView" style="flex-grow: 1;" />
-        <ui:Button text="Save" display-tooltip-when-elided="true" enable-rich-text="true" />
+        <ui:Button text="Save" display-tooltip-when-elided="true" enable-rich-text="true" name="save" />
     </ui:VisualElement>
 </ui:UXML>

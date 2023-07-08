@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace ProjectileAnimator
+namespace SwarmSequencer
 {
     public class NoPrefabWithGivenIdFoundException : Exception
     {
@@ -57,7 +57,7 @@ namespace ProjectileAnimator
         }
     }
 
-    public class InstanceConflictException: Exception
+    public class InstanceConflictException : Exception
     {
         public InstanceConflictException()
         {

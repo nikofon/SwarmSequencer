@@ -1,12 +1,11 @@
 using UnityEngine;
 using UnityEditor;
-using System.Collections.Generic;
-namespace ProjectileAnimator
+using SwarmSequencer.Serialization;
+namespace SwarmSequencer
 {
-    [CustomEditor(typeof(ProjectileDriver))]
-    public class ProjectileDriverCustomEditor: Editor
+    [CustomEditor(typeof(SwarmSequenceDirector))]
+    public class SqarmSequenceDirectorCustomEditor : Editor
     {
-        SerializedProperty projectileDataAsset;
         SerializedProperty projectileLookUps;
         SerializedProperty CellSize;
         SerializedProperty TimeBetweenTurns;
@@ -26,9 +25,9 @@ namespace ProjectileAnimator
 
         ProjectileDataScriptable scriptable;
 
-        ProjectileDriver targetDriver;
+        SwarmSequenceDirector targetDirector;
 
-        SerializedProperty loadTimeBetweenTurns;
+        SerializedProperty loadTimeBetweenFrames;
         SerializedProperty loadTurnTimeOverrides;
         SerializedProperty loadProjectileLookUps;
 
@@ -42,20 +41,19 @@ namespace ProjectileAnimator
 
         private void OnEnable()
         {
-            targetDriver = (ProjectileDriver)target;
+            targetDirector = (SwarmSequenceDirector)target;
 
-            loadTimeBetweenTurns = serializedObject.FindProperty("loadTimeBetweenTurns");
+            loadTimeBetweenFrames = serializedObject.FindProperty("loadTimeBetweenTurns");
             loadTurnTimeOverrides = serializedObject.FindProperty("loadTurnTimeOverrides");
             loadProjectileLookUps = serializedObject.FindProperty("loadProjectileLookUps");
 
-            if (targetDriver.ProjectileDataScriptable != null)
+            if (targetDirector.ProjectileDataScriptable != null)
             {
                 copyData = false;
                 loadData = true;
-                scriptable = targetDriver.ProjectileDataScriptable;
+                scriptable = targetDirector.ProjectileDataScriptable;
             }
 
-            projectileDataAsset = serializedObject.FindProperty("projectileDataAsset");
             center = serializedObject.FindProperty("center");
             shouldDrawGrid = serializedObject.FindProperty("shouldDrawGrid");
             projectileLookUps = serializedObject.FindProperty("projectileLookUps");
@@ -75,10 +73,10 @@ namespace ProjectileAnimator
         }
 
         public override void OnInspectorGUI()
-        { 
+        {
             EditorGUILayout.BeginHorizontal();
             GUI.enabled = !showSettings;
-            showSettings = GUILayout.Button("Settings")? true:showSettings;
+            showSettings = GUILayout.Button("Settings") ? true : showSettings;
             if (showSettings) { showGizmosSettings = false; }
             GUI.enabled = !showGizmosSettings;
             showGizmosSettings = GUILayout.Button("Gizmos") ? true : showGizmosSettings; ;
@@ -86,7 +84,7 @@ namespace ProjectileAnimator
             if (showGizmosSettings) { showSettings = false; }
             EditorGUILayout.EndHorizontal();
             if (showSettings) { SettingsGUI(); }
-            else if(showGizmosSettings) { GizmoGUI(); }
+            else if (showGizmosSettings) { GizmoGUI(); }
         }
 
         void GizmoGUI()
@@ -101,21 +99,25 @@ namespace ProjectileAnimator
             EditorGUILayout.PropertyField(DrawTragectories);
             EditorGUILayout.PropertyField(pathColors);
             serializedObject.ApplyModifiedProperties();
-            if(dw != DrawTragectories.boolValue && DrawTragectories.boolValue)
+            if (dw != DrawTragectories.boolValue && DrawTragectories.boolValue)
             {
-                targetDriver.GetPaths();
+                targetDirector.GetPaths();
             }
         }
 
         void SettingsGUI()
         {
-            EditorGUILayout.PropertyField(projectileDataAsset);
             if (Application.isPlaying || !(loadData && loadProjectileLookUps.boolValue))
                 EditorGUILayout.PropertyField(projectileLookUps);
+            var s = (SwarmSequence)EditorGUILayout.ObjectField(targetDirector.GetSwarmSequence(), typeof(SwarmSequence), false);
+            if (s != targetDirector.GetSwarmSequence())
+            {
+                targetDirector.SetSequence(s);
+            }
             EditorGUILayout.PropertyField(animationType);
             EditorGUILayout.PropertyField(UseWorldSpace);
             EditorGUILayout.PropertyField(CellSize);
-            if (Application.isPlaying || !(loadData && loadTimeBetweenTurns.boolValue))
+            if (Application.isPlaying || !(loadData && loadTimeBetweenFrames.boolValue))
                 EditorGUILayout.PropertyField(TimeBetweenTurns);
             if (Application.isPlaying || !(loadData && loadTurnTimeOverrides.boolValue))
                 EditorGUILayout.PropertyField(turnTimeOverrides);
@@ -146,45 +148,50 @@ namespace ProjectileAnimator
 
             scriptable = (ProjectileDataScriptable)EditorGUILayout.ObjectField("ProjectileData Sciptable", scriptable, typeof(ProjectileDataScriptable), false);
             EditorGUILayout.PropertyField(loadProjectileLookUps);
-            EditorGUILayout.PropertyField(loadTimeBetweenTurns);
+            EditorGUILayout.PropertyField(loadTimeBetweenFrames);
             EditorGUILayout.PropertyField(loadTurnTimeOverrides);
 
             serializedObject.ApplyModifiedProperties();
             if (copyData)
             {
-                targetDriver.ProjectileDataScriptable = null;
+                targetDirector.ProjectileDataScriptable = null;
                 GUI.enabled = scriptable != null;
                 if (GUILayout.Button("Copy data from scriptable"))
                 {
                     if (scriptable != null)
                     {
-                        targetDriver.LoadSettingsFromScriptableObject(scriptable, loadTimeBetweenTurns.boolValue, loadTurnTimeOverrides.boolValue, loadProjectileLookUps.boolValue);
+                        targetDirector.LoadSettingsFromScriptableObject(scriptable, loadTimeBetweenFrames.boolValue, loadTurnTimeOverrides.boolValue, loadProjectileLookUps.boolValue);
                     }
                 }
             }
             else
             {
-                targetDriver.ProjectileDataScriptable = scriptable;
+                targetDirector.ProjectileDataScriptable = scriptable;
             }
             GUI.enabled = true;
             GUILayout.Space(3);
-            GUI.enabled = !targetDriver.Playing;
+            GUI.enabled = !targetDirector.Playing;
             if (GUILayout.Button("Play"))
             {
-                if (!Application.isPlaying) { if (loadData && scriptable != null) { 
-                        targetDriver.LoadSettingsFromScriptableObject(scriptable, loadTimeBetweenTurns.boolValue, loadTurnTimeOverrides.boolValue, loadProjectileLookUps.boolValue); } 
-                    targetDriver.PlayAnimationEditor(); }
-                else targetDriver.Play();
+                if (!Application.isPlaying)
+                {
+                    if (loadData && scriptable != null)
+                    {
+                        targetDirector.LoadSettingsFromScriptableObject(scriptable, loadTimeBetweenFrames.boolValue, loadTurnTimeOverrides.boolValue, loadProjectileLookUps.boolValue);
+                    }
+                    targetDirector.PlayAnimationEditor();
+                }
+                else targetDirector.Play();
             }
-            GUI.enabled = ((ProjectileDriver)target).Running;
+            GUI.enabled = ((SwarmSequenceDirector)target).Active;
             if (GUILayout.Button("Pause"))
             {
-                ((ProjectileDriver)target).Pause();
+                ((SwarmSequenceDirector)target).Pause();
             }
             if (GUILayout.Button("Stop"))
             {
-                if (!Application.isPlaying) targetDriver.StopAnimationEditor();
-                else targetDriver.Stop();
+                if (!Application.isPlaying) targetDirector.StopAnimationEditor();
+                else targetDirector.Stop();
             }
             GUI.enabled = true;
         }

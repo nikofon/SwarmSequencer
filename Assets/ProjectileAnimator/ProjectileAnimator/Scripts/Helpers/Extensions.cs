@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 using UnityEngine;
 
-namespace ProjectileAnimator
+namespace SwarmSequencer
 {
     public static class Extensions
     {
@@ -17,6 +17,11 @@ namespace ProjectileAnimator
             Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>> res = new Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>>();
             foreach (var n in l) res.Add(n, d[n]);
             return res;
+        }
+
+        public static float ConfineToPrecision(this float f, float precision)
+        {
+            return Mathf.Floor(f / precision) * precision;
         }
 
         public static Dictionary<ProjectileKey, Transform> SortProjectileDictionary(this Dictionary<ProjectileKey, Transform> d)

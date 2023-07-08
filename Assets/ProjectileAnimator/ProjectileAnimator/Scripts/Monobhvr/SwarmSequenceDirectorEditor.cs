@@ -3,22 +3,23 @@ using System;
 using System.Collections;
 using Unity.EditorCoroutines.Editor;
 using UnityEditor;
+using UnityEngine;
 
-namespace ProjectileAnimator
+namespace SwarmSequencer
 {
-    public partial class ProjectileDriver
+    public partial class SwarmSequenceDirector
     {
         public void PlayAnimationEditor()
         {
+            LoadFrameData();
             if (paused) { paused = false; return; }
-            if (FrameDatas == null) FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text);
             ChangeFrame(0);
-            running = true;
+            active = true;
             EditorCoroutineUtility.StartCoroutine(RunProjectileMovementEditor(0.02f), this);
         }
         public void StopAnimationEditor()
         {
-            running = false;
+            active = false;
             paused = false;
             foreach (var obj in projectilePositions) DestroyImmediate(obj.Value.gameObject);
             projectilePositions.Clear();
@@ -27,12 +28,13 @@ namespace ProjectileAnimator
             currentFrame = 0;
             currentTime = 0;
             DisposeNativeCollections();
+            DisposeBezierPoints();
         }
 
         IEnumerator RunProjectileMovementEditor(float delta)
         {
             var waitAmount = new EditorWaitForSeconds(delta);
-            while (running)
+            while (active)
             {
                 if (!paused)
                 {
@@ -49,6 +51,7 @@ namespace ProjectileAnimator
                                 {
                                     currentFrame += order;
                                     DisposeNativeCollections();
+                                    DisposeBezierPoints();
                                 }
                                 else { skipFrame = false; }
                                 ChangeFrame(currentFrame, DisposalMode.Immediate);
@@ -66,6 +69,7 @@ namespace ProjectileAnimator
                                 {
                                     currentFrame++;
                                     DisposeNativeCollections();
+                                    DisposeBezierPoints();
                                 }
                                 else { skipFrame = false; }
                                 ChangeFrame(currentFrame, dsplM: DisposalMode.Immediate);
@@ -81,15 +85,17 @@ namespace ProjectileAnimator
                             {
                                 currentFrame++;
                                 DisposeNativeCollections();
+                                DisposeBezierPoints();
                                 ChangeFrame(currentFrame, dsplM: DisposalMode.Immediate);
                             }
                             yield return waitAmount;
                             OnAnimationFinished -= stop;
                             break;
                     }
-                    t += delta / timeOverrideValue; 
-                    currentTime += order * delta; 
+                    t += delta / timeOverrideValue;
+                    currentTime += order * delta;
                 }
+                else yield return waitAmount;
             }
         }
 
@@ -97,7 +103,7 @@ namespace ProjectileAnimator
         {
             if (x == PlayModeStateChange.ExitingEditMode)
             {
-                if (Running)
+                if (Active)
                 {
                     StopAnimationEditor();
                 }

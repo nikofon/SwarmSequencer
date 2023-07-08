@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace ProjectileAnimator
+namespace SwarmSequencer
 {
     [CreateAssetMenu(menuName = "ProjectileAnimator/ProjectileDriverData")]
     public class ProjectileDataScriptable : ScriptableObject

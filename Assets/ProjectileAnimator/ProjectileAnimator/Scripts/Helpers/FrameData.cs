@@ -1,11 +1,12 @@
 using System;
-using System.Collections;
+using SwarmSequencer.Serialization;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-namespace ProjectileAnimator
+namespace SwarmSequencer
 {
+    [System.Serializable]
     /// <summary>
     /// This class represents compete info about positions of all projectiles in one frame, including their bezier interpolation point
     /// </summary>
@@ -15,6 +16,7 @@ namespace ProjectileAnimator
         /// key - prefab id, unique projectile id, value - Tuple, first - relative position, second - Bezier Interpolation Point
         /// </summary>       
         [Newtonsoft.Json.JsonIgnore]
+        [System.NonSerialized]
         public Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>> ProjectilePositionData;
 
         public List<KeyValuePair<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>>> SerializeProjectilePositionData
@@ -123,8 +125,8 @@ namespace ProjectileAnimator
     public class ProjectileLookUp
     {
         public GameObject prefab;
-        [Range(1, 255)]
-        public int id = 1;
+        [Min(0)]
+        public int id = 0;
     }
 
     [System.Serializable]
@@ -141,4 +143,5 @@ namespace ProjectileAnimator
             return (FrameOne == o.FrameOne && FrameTwo == o.FrameTwo) || (FrameOne == o.FrameTwo && FrameTwo == o.FrameOne);
         }
     }
+
 }

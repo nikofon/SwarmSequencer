@@ -6,16 +6,16 @@ using Unity.Jobs;
 using System;
 using Unity.Collections;
 using UnityEditor;
-using System.Threading;
+using SwarmSequencer.MathTools;
 
-namespace ProjectileAnimator
+namespace SwarmSequencer
 {
     [ExecuteInEditMode]
-    public partial class ProjectileDriver : MonoBehaviour
+    public partial class SwarmSequenceDirector : MonoBehaviour
     {
         //data to load
         /// <summary>
-        /// Projectile data scriptablel, used by this object. To set it and apply settings, call ChangeAsset(string, ProjectileDataScriptable,...)
+        /// Projectile data scriptable used by this object. To set it and apply settings, call ChangeAsset(string, ProjectileDataScriptable,...)
         /// </summary>
         public ProjectileDataScriptable ProjectileDataScriptable { get => projectileDataScriptable; set => projectileDataScriptable = value; }
         [SerializeField] ProjectileDataScriptable projectileDataScriptable;
@@ -24,24 +24,26 @@ namespace ProjectileAnimator
         [SerializeField] bool loadTurnTimeOverrides;
         [SerializeField] bool loadProjectileLookUps;
 
-        [SerializeField] TextAsset projectileDataAsset;
+        [SerializeField] SwarmSequence swarmSequenceData;
 
         public List<ProjectileLookUp> projectileLookUps = new List<ProjectileLookUp>();
 
         public bool PlayOnAwake = false;
 
         [Tooltip("Pixel to local units")]
-        public float CellSize;
+        [Min(0.1f)]
+        public float CellSize = 1f;
+
         [Tooltip("By default projectiles move in local space, check this to use world space instead")]
         public bool UseWorldSpace;
 
         [Min(0.01f)]
-        public float TimeBetweenFrames;
+        public float TimeBetweenFrames = 0.1f;
 
         [Tooltip("How to handle objects that disappeare on the next frame?")]
-        public UnwantedObjectsHandlingType UnassignedObjectsHandling = UnwantedObjectsHandlingType.Destroy;
+        public UnassignedObjectsHandlingType UnassignedObjectsHandling = UnassignedObjectsHandlingType.Destroy;
         [Tooltip("How to handle objects that have completed the animation?")]
-        public UnwantedObjectsHandlingType CompletedObjectsHandling = UnwantedObjectsHandlingType.Destroy;
+        public UnassignedObjectsHandlingType CompletedObjectsHandling = UnassignedObjectsHandlingType.Destroy;
 
         public AnimationTypes AnimationType { get => animationType; set { animationType = value; } }
         [SerializeField] AnimationTypes animationType = AnimationTypes.Single;
@@ -57,14 +59,6 @@ namespace ProjectileAnimator
 
         private List<FrameData> FrameDatas;
 
-        /// <summary>
-        /// Holds deserialized data that is not currently active
-        /// </summary>
-        public Dictionary<string, List<FrameData>> DeserializedFrameDatas
-        {
-            get { if (deserializedFrameDatas == null) deserializedFrameDatas = new Dictionary<string, List<FrameData>>(); return deserializedFrameDatas; }
-            set => deserializedFrameDatas = value;
-        }
         Dictionary<string, List<FrameData>> deserializedFrameDatas;
 
         Dictionary<ProjectileKey, Transform> projectilePositions = new Dictionary<ProjectileKey, Transform>();
@@ -94,19 +88,19 @@ namespace ProjectileAnimator
         /// <summary>
         /// Is an animation currently playing?
         /// </summary>
-        public bool Playing { get => running && !paused; }
+        public bool Playing { get => active && !paused; }
         public bool Paused { get => paused; }
         /// <summary>
         /// Is animation active? (returns true even if paused)
         /// </summary>
-        public bool Running { get => running; }
+        public bool Active { get => active; }
 
         public float CurrentTime
         {
             get => currentTime; set
             {
                 if (FrameDatas == null) return;
-                int frame = DetermineFrameByTime(value);
+                int frame = GetFrameByTime(value);
                 int maxFrame = FrameDatas.Count - 1;
                 int newFrame = Mathf.Clamp(frame, 0, maxFrame);
                 if (newFrame != currentFrame || newFrame == 0) { currentFrame = newFrame; ChangeFrame(newFrame); }
@@ -119,20 +113,20 @@ namespace ProjectileAnimator
         float currentTime;
 
         /// <summary>
-        /// Gets or sets the duration of one complete animation. If you want to set it, be sure that there is desserialized animation in use.
+        /// Gets or sets the duration of one complete animation. If you want to set it, be sure that there is a desserialized seqeunce in use.
         /// </summary>
         public float Duration { get => CalculateDuration(); set { if (FrameDatas != null) TimeBetweenFrames = CalculateTimeBetweenFrames(value, FrameDatas.Count, frameTimeOverrides); } }
 
         bool paused;
 
-        bool running;
+        bool active;
         bool skipFrame;
         int order = 1;
         float timeOverrideValue = -1;
 
         //Advanced
 
-        [Tooltip("If checked, provided textasset will be deserealized on awake")]
+        [Tooltip("If checked, provided sequence will be deserealized on awake")]
         public bool deserializeOnAwake = true;
 
         [Tooltip("Determines batch size for IJobParallelFor.Schedule()")]
@@ -142,6 +136,7 @@ namespace ProjectileAnimator
         void ChangeFrame(int newTurn, DisposalMode dsplM = DisposalMode.Normal)
         {
             DisposeNativeCollections();
+            DisposeBezierPoints();
             if ((order > 0 && newTurn + 1 >= FrameDatas.Count) || (order < 0 && newTurn - 1 < 0))
             {
                 OnAnimationFinished?.Invoke();
@@ -156,9 +151,11 @@ namespace ProjectileAnimator
             var nextPos = FrameDatas[newTurn + order].ProjectilePositionData;
             foreach (var v in pos)
             {
-                if (!projectilePositions.ContainsKey(v.Key)) toInstantiate.Add(v.Key, v.Value.Item1);
+                var matrix = UseWorldSpace ? Matrix4x4.identity : transform.localToWorldMatrix;
+                if (!projectilePositions.ContainsKey(v.Key)) toInstantiate.Add(v.Key, matrix.MultiplyPoint3x4(v.Value.Item1));
             }
-            InstantiateProjectiles(ref toInstantiate);
+            if (toInstantiate.Count > 0)
+                InstantiateProjectiles(ref toInstantiate);
             foreach (var p in projectilePositions)
             {
                 if (!nextPos.ContainsKey(p.Key)) toRemove.Add(p.Key);
@@ -168,16 +165,13 @@ namespace ProjectileAnimator
                 var trvmGO = projectilePositions[trmv];
                 projectilePositions.Remove(trmv);
                 pos.Remove(trmv);
-                if (UnassignedObjectsHandling == UnwantedObjectsHandlingType.Destroy && trvmGO != null)
+                if (UnassignedObjectsHandling == UnassignedObjectsHandlingType.Destroy && trvmGO != null)
                 {
                     if (Application.isPlaying && dsplM == DisposalMode.Normal) { Destroy(trvmGO.gameObject); }
                     else DestroyImmediate(trvmGO.gameObject);
                 }
             }
-            if (bezierInterpolationPoints == null)
-            {
-                bezierInterpolationPoints = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
-            }
+            bezierInterpolationPoints = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             currentPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             originalPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             targetPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
@@ -186,7 +180,14 @@ namespace ProjectileAnimator
             {
                 currentPositions[i] = CellSize * (Vector3)p.Value.Item1;
                 originalPositions[i] = CellSize * (Vector3)p.Value.Item1;
-                bezierInterpolationPoints[i] = CellSize * (Vector3)p.Value.Item2;
+                if (order > 0)
+                {
+                    bezierInterpolationPoints[i] = CellSize * (Vector3)p.Value.Item2;
+                }
+                else
+                {
+                    bezierInterpolationPoints[i] = CellSize * (Vector3)nextPos[p.Key].Item2;
+                }
                 targetPositions[i] = CellSize * (Vector3)nextPos[p.Key].Item1;
                 i++;
             }
@@ -194,7 +195,7 @@ namespace ProjectileAnimator
             OnFrameChanged?.Invoke(newTurn, newTurn + order);
         }
 
-        public int DetermineFrameByTime(float time)
+        public int GetFrameByTime(float time)
         {
             int frame = 0;
             if (frameTimeOverrides == null || frameTimeOverrides.Count == 0)
@@ -219,10 +220,20 @@ namespace ProjectileAnimator
             return frame;
         }
 
+
+        void LoadFrameData()
+        {
+            if (swarmSequenceData == null)
+            {
+                Debug.LogError(new NullReferenceException("No seqence provided"));
+                return;
+            }
+            FrameDatas = swarmSequenceData.Frames;
+        }
+
         float CalculateDuration()
         {
             float res = 0;
-            if (FrameDatas == null) { if (projectileDataAsset == null) return 0; FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text); }
             for (int i = 0; i < FrameDatas.Count - 1; i++)
             {
                 var timeOverride = frameTimeOverrides.Find(x => x.Equals(new FrameTimeOverride { FrameOne = i, FrameTwo = i + 1 }));
@@ -263,7 +274,7 @@ namespace ProjectileAnimator
             return t;
         }
 
-        void ProjectileMovement(bool useFixedTime = false, float fixedTime = 0)
+        void ProjectileMovement()
         {
             JobHandle h = new MoveProjectiles() { transform = UseWorldSpace ? Matrix4x4.identity : transform.localToWorldMatrix, positions = currentPositions, bezierInterpolationPoints = bezierInterpolationPoints, originalPositions = originalPositions, targets = targetPositions, t = t }.Schedule(currentPositions.Length, batchSize);
             h.Complete();
@@ -300,7 +311,7 @@ namespace ProjectileAnimator
         }
 
         /// <summary>
-        /// set settings from a scriptable object. Gameobjects will not be reinstantiated if an animation is already running (even if it's paused)! 
+        /// Set settings from a scriptable object. Gameobjects will not be reinstantiated if an animation is already running (even if it's paused)! 
         /// </summary>
         /// <param name="settings"></param>
         /// <param name="loadTimeBetweenFrames"></param>
@@ -315,81 +326,55 @@ namespace ProjectileAnimator
         }
 
         /// <summary>
-        /// Set new animation from string
+        /// Set new sequence
         /// </summary>
-        /// <param name="newAssetText"></param>
+        /// <param name="new sequence"></param>
         /// <returns>Succesfully changed asset</returns>
-        public bool ChangeAsset(string newAssetText)
+        public bool SetSequence(SwarmSequence sequence)
         {
-            if (running) { Debug.LogWarning("You can't change animation while the other one is running, stop the animation first and try again."); return false; }
+            if (active) { Debug.LogWarning("You can't change animation while the other one is running, stop the animation first and try again."); return false; }
             else
             {
-                FrameDatas = FrameDataSerializer.DeserializeFrameData(newAssetText);
+                if (sequence == null)
+                {
+                    swarmSequenceData = null;
+                    FrameDatas = null;
+                }
+                else { swarmSequenceData = sequence; FrameDatas = sequence.Frames; Debug.Log($"Frame data count: {FrameDatas.Count}"); }
                 return true;
             }
         }
 
         /// <summary>
-        /// Set new animation from string with provided settings. If the animation can not be changed, provided settings won't be applied.
+        /// Set new seqeunce with provided settings. If the animation can not be changed, provided settings won't be applied.
         /// </summary>
-        /// <param name="newAsset"></param>
+        /// <param name="new sequence"></param>
         /// <param name="settings"></param>
         /// <param name="loadTimeBetweenFrames"></param>
         /// <param name="loadFrameTimeOverrides"></param>
         /// <param name="loadProjectileLookUps"></param>
         /// <returns>Succesfully changed asset</returns>
-        public bool ChangeAsset(string newAsset, ProjectileDataScriptable settings, bool loadTimeBetweenFrames = true, bool loadFrameTimeOverrides = true, bool loadProjectileLookUps = true)
+        public bool SetSequence(SwarmSequence sequence, ProjectileDataScriptable settings, bool loadTimeBetweenFrames = true, bool loadFrameTimeOverrides = true, bool loadProjectileLookUps = true)
         {
-            if (running) { Debug.LogWarning("You can't change animation while the other one is running, stop the animation first and try again."); return false; }
+            if (active) { Debug.LogWarning("You can't change animation while the other one is running, stop the animation first and try again."); return false; }
             else
             {
                 this.ProjectileDataScriptable = settings;
                 LoadSettingsFromScriptableObject(settings, loadTimeBetweenFrames, loadFrameTimeOverrides, loadProjectileLookUps);
-                ChangeAsset(newAsset);
+                SetSequence(sequence);
                 return true;
             }
         }
 
 
-        /// <summary>
-        /// Set new animation from data
-        /// </summary>
-        /// <param name="newData"></param>
-        /// <returns></returns>
-        public bool ChangeAsset(List<FrameData> newData)
+        internal SwarmSequence GetSwarmSequence()
         {
-            if (running) { Debug.LogWarning("You can't change animation while the other one is running, stop the animation first and try again."); return false; }
-            else
-            {
-                FrameDatas = newData;
-                return true;
-            }
-        }
-        public bool ChangeAsset(List<FrameData> newData, ProjectileDataScriptable settings, bool loadTimeBetweenFrames = true, bool loadFrameTimeOverrides = true, bool loadProjectileLookUps = true)
-        {
-            if (running) { Debug.LogWarning("You can't change animation while the other one is running, stop the animation first and try again."); return false; }
-            else
-            {
-                this.ProjectileDataScriptable = settings;
-                LoadSettingsFromScriptableObject(settings, loadTimeBetweenFrames, loadFrameTimeOverrides, loadProjectileLookUps);
-                ChangeAsset(newData);
-                return true;
-            }
+            return swarmSequenceData;
         }
 
-        /// <summary>
-        /// Call this function to asynchronously deserealize a string and add it to DeserializedFrameDatas with given name being the key.
-        /// </summary>
-        /// <param name="newAssetText"></param>
-        /// <param name="name"></param>
-        /// <returns></returns>
-        public void DeserializeAssetToQueue(string newAssetText, string name)
+        public string GetActiveSequenceName()
         {
-            Thread thread = new Thread(new ThreadStart(() =>
-            {
-                DeserializedFrameDatas.Add(name, FrameDataSerializer.DeserializeFrameData(newAssetText));
-            }));
-            thread.Start();
+            return swarmSequenceData.sequenceName;
         }
 
         float CalculateTimeBetweenFrames(float duration, int frameCount, List<FrameTimeOverride> frameTimeOverrides)
@@ -409,12 +394,13 @@ namespace ProjectileAnimator
         /// <param name="order"></param>
         public void Play()
         {
+            LoadFrameData();
+            Debug.Log($"Frame data: {swarmSequenceData.Frames == null}");
             if (paused) { paused = false; return; }
-            if (running) return;
-            if (FrameDatas == null) FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text);
+            if (active) return;
             ChangeFrame(currentFrame);
-            running = true;
-            StartCoroutine(RunProjectileMovement());
+            active = true;
+            StartCoroutine(RunSequence());
         }
 
         /// <summary>
@@ -424,23 +410,24 @@ namespace ProjectileAnimator
         /// <param name="order"> if order = 1, plays animation forward, if = -1 plays animation in reverse </param>
         public void Play(int fromFrame, int order)
         {
+            LoadFrameData();
             DisposeBezierPoints();
-            if (running) return;
+            DisposeNativeCollections();
+            if (Playing) return;
             if (paused) Stop();
             currentFrame = fromFrame;
-            if (FrameDatas == null) FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text);
             this.order = order;
             ChangeFrame(currentFrame);
-            running = true;
-            StartCoroutine(RunProjectileMovement());
+            active = true;
+            StartCoroutine(RunSequence());
         }
         /// <summary>
         /// Stops current animation, applying "completed objects handling" procedure to remaining objects
         /// </summary>
         public void Stop()
         {
-            running = false;
-            if (CompletedObjectsHandling == UnwantedObjectsHandlingType.Destroy)
+            active = false;
+            if (CompletedObjectsHandling == UnassignedObjectsHandlingType.Destroy)
             {
                 foreach (var obj in projectilePositions)
                     if (obj.Value != null) Destroy(obj.Value.gameObject);
@@ -460,12 +447,12 @@ namespace ProjectileAnimator
             paused = true;
         }
 
-        IEnumerator RunProjectileMovement(bool useFixedTime = false, float fixedTime = 0)
+        IEnumerator RunSequence(bool useFixedTime = false, float fixedTime = 0)
         {
             YieldInstruction waitAmount;
             if (!useFixedTime) waitAmount = new WaitForEndOfFrame();
             else waitAmount = new WaitForSeconds(fixedTime);
-            while (running)
+            while (active)
             {
                 if (!paused)
                 {
@@ -483,7 +470,7 @@ namespace ProjectileAnimator
                                     currentFrame += order;
                                 }
                                 else { skipFrame = false; }
-                                ChangeFrame(currentFrame);
+                                ChangeFrame(currentFrame, DisposalMode.Normal);
                             }
                             yield return waitAmount;
                             OnAnimationFinished -= increment;
@@ -499,7 +486,7 @@ namespace ProjectileAnimator
                                     currentFrame++;
                                 }
                                 else { skipFrame = false; }
-                                ChangeFrame(currentFrame);
+                                ChangeFrame(currentFrame, DisposalMode.Normal);
                             }
                             yield return waitAmount;
                             OnAnimationFinished -= reset;
@@ -511,7 +498,7 @@ namespace ProjectileAnimator
                             if (t >= 1)
                             {
                                 currentFrame++;
-                                ChangeFrame(currentFrame);
+                                ChangeFrame(currentFrame, DisposalMode.Normal);
                             }
                             yield return waitAmount;
                             OnAnimationFinished -= stop;
@@ -520,12 +507,13 @@ namespace ProjectileAnimator
                     if (!useFixedTime) { t += Time.deltaTime / timeOverrideValue; currentTime += order * Time.deltaTime; }
                     else { currentTime += order * fixedTime; t += fixedTime / timeOverrideValue; }
                 }
+                else { yield return waitAmount; }
             }
         }
 
         public void Clear()
         {
-            running = false;
+            active = false;
             foreach (var v in projectilePositions)
             {
                 DestroyImmediate(v.Value.gameObject);
@@ -535,6 +523,7 @@ namespace ProjectileAnimator
             skipFrame = false;
             FrameDatas = null;
             DisposeNativeCollections();
+            DisposeBezierPoints();
         }
 
         private void Awake()
@@ -554,11 +543,12 @@ namespace ProjectileAnimator
                     TimeBetweenFrames = ProjectileDataScriptable.TimeBetweenFrames;
                 }
             }
-            if (deserializeOnAwake)
-                if (projectileDataAsset != null)
-                    FrameDatas = FrameDataSerializer.DeserializeFrameData(projectileDataAsset.text);
             if (Application.isPlaying && PlayOnAwake)
                 Play();
+            if (deserializeOnAwake && swarmSequenceData != null)
+            {
+                swarmSequenceData.ForceDeserialize();
+            }
         }
 
         void DisposeNativeCollections()
@@ -603,9 +593,9 @@ namespace ProjectileAnimator
         }
 
         /// <summary>
-        /// How to handle objects that are no longer part of animation?
+        /// How to handle objects that are no longer a part of the seqeunce?
         /// </summary>
-        public enum UnwantedObjectsHandlingType
+        public enum UnassignedObjectsHandlingType
         {
             /// <summary>
             /// Unwanted objects will be destroyed
@@ -632,11 +622,11 @@ namespace ProjectileAnimator
         {
             if (float.IsNaN(bezierInterpolationPoints[index].x))
             {
-                positions[index] = Vector3.Lerp(transform.MultiplyPoint(originalPositions[index]), transform.MultiplyPoint(targets[index]), t);
+                positions[index] = Vector3.Lerp(transform.MultiplyPoint3x4(originalPositions[index]), transform.MultiplyPoint3x4(targets[index]), t);
             }
             else
             {
-                positions[index] = MathHelper.BezierInterpolation(transform.MultiplyPoint(originalPositions[index]), transform.MultiplyPoint(targets[index]), transform.MultiplyPoint(bezierInterpolationPoints[index]), t);
+                positions[index] = MathHelper.BezierInterpolation(transform.MultiplyPoint3x4(originalPositions[index]), transform.MultiplyPoint3x4(targets[index]), transform.MultiplyPoint3x4(bezierInterpolationPoints[index]), t);
             }
         }
     }

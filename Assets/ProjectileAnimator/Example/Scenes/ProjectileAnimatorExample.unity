@@ -123,6 +123,73 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &342693454
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 342693459}
+  - component: {fileID: 342693460}
+  m_Layer: 0
+  m_Name: Cube
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &342693459
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 342693454}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 8.08, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &342693460
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 342693454}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6206916cb9017464da5857250acb9b76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  projectileDataScriptable: {fileID: 0}
+  loadTimeBetweenTurns: 0
+  loadTurnTimeOverrides: 0
+  loadProjectileLookUps: 0
+  swarmSequenceData: {fileID: -6979533126094156877, guid: 9ac5bcede411e99ec9b0fd01fa7c7322, type: 3}
+  projectileLookUps:
+  - prefab: {fileID: 9125442021306605232, guid: ff96b84128670d0f1949ed3b8e83a3f4, type: 3}
+    id: 0
+  PlayOnAwake: 0
+  CellSize: 1
+  UseWorldSpace: 0
+  TimeBetweenFrames: 1
+  UnassignedObjectsHandling: 0
+  CompletedObjectsHandling: 0
+  animationType: 0
+  frameTimeOverrides: []
+  deserializeOnAwake: 1
+  batchSize: 1
+  GridSize: {x: 8, y: 8, z: 0}
+  center: {x: 0, y: 0, z: 0}
+  shouldDrawGrid: 1
+  DrawTragectories: 0
+  pathColors: []
 --- !u!1 &408829689
 GameObject:
   m_ObjectHideFlags: 0
@@ -134,7 +201,6 @@ GameObject:
   - component: {fileID: 408829692}
   - component: {fileID: 408829691}
   - component: {fileID: 408829690}
-  - component: {fileID: 408829693}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -201,53 +267,10 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 408829689}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -35.7, y: 14.7, z: -19.5}
+  m_LocalPosition: {x: 5.82, y: 1.32, z: -19.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &408829693
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 408829689}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6206916cb9017464da5857250acb9b76, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  projectileDataScriptable: {fileID: 0}
-  loadTimeBetweenTurns: 0
-  loadTurnTimeOverrides: 0
-  loadProjectileLookUps: 0
-  projectileDataAsset: {fileID: 0}
-  projectileLookUps:
-  - prefab: {fileID: 0}
-    id: 0
-  - prefab: {fileID: 0}
-    id: 0
-  PlayOnAwake: 0
-  CellSize: 0
-  UseWorldSpace: 0
-  TimeBetweenFrames: 0
-  UnassignedObjectsHandling: 0
-  CompletedObjectsHandling: 0
-  animationType: 0
-  frameTimeOverrides:
-  - FrameOne: 0
-    FrameTwo: 0
-    value: 0
-  - FrameOne: 0
-    FrameTwo: 0
-    value: 0
-  deserializeOnAwake: 1
-  batchSize: 1
-  GridSize: {x: 0, y: 0, z: 0}
-  center: {x: 0, y: 0, z: 0}
-  shouldDrawGrid: 0
-  DrawTragectories: 0
-  pathColors: []
