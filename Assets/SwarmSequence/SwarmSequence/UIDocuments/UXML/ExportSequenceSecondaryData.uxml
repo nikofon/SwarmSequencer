@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
+    <ui:Toggle label="Export grid settings" name="exportGridSettingsToggle" />
+    <ui:Toggle label="Export prefabs" name="exportPrefabsToggle" />
+    <ui:Button text="Save" display-tooltip-when-elided="true" name="save" />
+    <ui:Button text="Back" display-tooltip-when-elided="true" name="back" />
+</ui:UXML>

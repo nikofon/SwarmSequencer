@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
+    <uie:ObjectField label="Sequence" allow-scene-objects="false" name="sequenceField" />
+    <uie:ObjectField label="Additional settings" allow-scene-objects="false" name="additionalData" />
+    <ui:Toggle label="Import grid settings" name="importGridSettingsToggle" value="true" tooltip="Imports grid settings from provided" />
+    <ui:Toggle label="Import prefabs" name="importPrefabsToggle" value="true" />
+    <ui:Button text="Import" display-tooltip-when-elided="true" name="import" />
+    <ui:Button text="Back" display-tooltip-when-elided="true" name="back" />
+</ui:UXML>
