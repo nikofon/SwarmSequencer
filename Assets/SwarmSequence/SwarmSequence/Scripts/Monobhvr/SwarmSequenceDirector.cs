@@ -134,7 +134,6 @@ namespace SwarmSequencer
 
         void ChangeFrame(int newFrame, DisposalMode dsplM = DisposalMode.Normal)
         {
-            Debug.Log($"Changing frame to {newFrame}");
             DisposeNativeCollections();
             DisposeBezierPoints();
             if ((order > 0 && newFrame + 1 >= FrameDatas.Count) || (order < 0 && newFrame - 1 < 0))
