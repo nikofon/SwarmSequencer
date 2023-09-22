@@ -15,7 +15,6 @@ namespace SwarmSequencer
         SerializedProperty CompletedObjectsHandling;
         SerializedProperty UseWorldSpace;
         SerializedProperty batchSize;
-        SerializedProperty deserializeOnAwake;
         SerializedProperty PlayOnAwake;
         SerializedProperty GridSize;
         SerializedProperty center;
@@ -62,7 +61,6 @@ namespace SwarmSequencer
             GridSize = serializedObject.FindProperty("GridSize");
             batchSize = serializedObject.FindProperty("batchSize");
             PlayOnAwake = serializedObject.FindProperty("PlayOnAwake");
-            deserializeOnAwake = serializedObject.FindProperty("deserializeOnAwake");
             UseWorldSpace = serializedObject.FindProperty("UseWorldSpace");
             TimeBetweenTurns = serializedObject.FindProperty("TimeBetweenFrames");
             animationType = serializedObject.FindProperty("animationType");
@@ -101,16 +99,22 @@ namespace SwarmSequencer
             serializedObject.ApplyModifiedProperties();
             if (dw != DrawTragectories.boolValue && DrawTragectories.boolValue)
             {
-                targetDirector.GetPaths();
+                targetDirector.sequencePath = targetDirector.GetPaths();
             }
         }
 
         void SettingsGUI()
         {
+            EditorGUILayout.Space(5);
+            EditorGUILayout.LabelField("SwarmSequence");
             var s = (SwarmSequence)EditorGUILayout.ObjectField(targetDirector.GetSwarmSequence(), typeof(SwarmSequence), false, GUILayout.Height(50));
             if (s != targetDirector.GetSwarmSequence())
             {
                 targetDirector.SetSequence(s);
+                if (DrawTragectories.boolValue)
+                {
+                    targetDirector.sequencePath = targetDirector.GetPaths();
+                }
             }
             EditorGUILayout.Space(10);
             EditorGUILayout.PropertyField(instances);
@@ -129,7 +133,6 @@ namespace SwarmSequencer
             showPosition = EditorGUILayout.BeginFoldoutHeaderGroup(showPosition, "Advanced");
             if (showPosition)
             {
-                EditorGUILayout.PropertyField(deserializeOnAwake);
                 EditorGUILayout.PropertyField(batchSize);
             }
             EditorGUILayout.EndFoldoutHeaderGroup();

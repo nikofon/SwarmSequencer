@@ -16,7 +16,7 @@ namespace SwarmSequencer
                 for (int i = 0; i < points.Length - 1; i++)
                 {
                     if (points[i] != points[i + 1])
-                        Gizmos.DrawLine(convert.MultiplyPoint(points[i]), convert.MultiplyPoint(points[i + 1]));
+                        Gizmos.DrawLine(convert.MultiplyPoint3x4(points[i]), convert.MultiplyPoint3x4(points[i + 1]));
                 }
                 Gizmos.color = standart;
             }

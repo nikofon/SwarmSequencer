@@ -7,9 +7,15 @@
 Assets/AssetStoreTools*
 UIElementsSchema/
 UserSettings/
+ProjectSettings/
+Assets/SwarmSequence/Example
+
 
 *.gitattributes
 *.vsconfig
+
+# Packages
+Packages/
 
 # Visual Studio cache directory
 .vs/

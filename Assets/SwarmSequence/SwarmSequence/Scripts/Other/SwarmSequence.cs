@@ -14,10 +14,9 @@ namespace SwarmSequencer
         [HideInInspector]
         public string rawData;
 
-        public void ForceDeserialize()
+        void ForceDeserialize()
         {
             m_Frames = FrameDataSerializer.DeserializeFrameData(rawData);
-            Debug.Log($"deserialized data count: {m_Frames.Count}");
         }
 
     }

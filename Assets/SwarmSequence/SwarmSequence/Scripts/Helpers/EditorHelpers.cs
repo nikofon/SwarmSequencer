@@ -159,8 +159,8 @@ namespace SwarmSequencer
                     }
                     root.style.height = new StyleLength(new Length(root.resolvedStyle.height - projectileInstances.Count * ProjectileInstanceContainer.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
                 }
-                if (projectilesShown) showProjectielListButton.text = "Hide projectile list";
-                else showProjectielListButton.text = "Show projectile list";
+                if (projectilesShown) showProjectielListButton.text = "Hide instance list";
+                else showProjectielListButton.text = "Show instance list";
             }
         }
 
@@ -175,7 +175,7 @@ namespace SwarmSequencer
 
             public Vector3Field positionField;
 
-            public readonly ProjectileKey projectileInstanceID;
+            public readonly ProjectileKey instanceID;
 
             public VisualElement[] borderElements;
             public ProjectileGroupUI parent;
@@ -282,7 +282,7 @@ namespace SwarmSequencer
                 this.parent = parent;
                 this.root = root;
                 this.trailColor = trailColor;
-                this.projectileInstanceID = new ProjectileKey(projectileGroupID, projectileInstanceID);
+                this.instanceID = new ProjectileKey(projectileGroupID, projectileInstanceID);
                 trailColorField = root.Q<ColorField>("trailColorOverrideField");
                 trailColorField.value = this.trailColor;
                 trailColorField.RegisterValueChangedCallback(
@@ -317,6 +317,16 @@ namespace SwarmSequencer
                     parent.parent.SelectedProjectileInstanceUI.UpdateSelectedInstanceUI();
                     SceneView.RepaintAll();
                 });
+
+                root.Q<ToolbarButton>("DeleteInstanceButton").clicked += () =>
+                {
+                    parent.parent.DeleteProjectileInstance(parent, projectileInstanceID);
+                };
+
+                root.Q<Button>("SelectInstanceButton").clicked += () =>
+                {
+                    parent.parent.SelectProjectileInstance(this);
+                };
 
                 borderElements = new VisualElement[]{
                 root.Q<VisualElement>("BorderContainerOne"),
@@ -423,7 +433,7 @@ namespace SwarmSequencer
                 selectedProjectilePrefabField.RegisterValueChangedCallback((v) =>
                 {
                     if (parent.SelectedProjectileInstance == null) return;
-                    this.parent.projectileGroupContainerDict[parent.SelectedProjectileInstance.projectileInstanceID.ProjectilePrefabId].ChangePrefab((GameObject)v.newValue);
+                    this.parent.projectileGroupContainerDict[parent.SelectedProjectileInstance.instanceID.GroupIndex].ChangePrefab((GameObject)v.newValue);
                 });
                 rootVisualElement.Q<Button>("ClearInstanceSelectionButton").clicked += () => parent.SelectProjectileInstance(null);
 
@@ -431,6 +441,7 @@ namespace SwarmSequencer
                 selectedInstPosInCurrentFrame.SetValueWithoutNotify(MathHelper.NaNVector3);
                 selectedInstPosInCurrentFrame.RegisterValueChangedCallback((v) =>
                 {
+                    if (parent.SelectedProjectileInstance == null) return;
                     if (MathHelper.IsNaNVector3(v.newValue)) return;
                     int selectedFrame = parent.SelectedFrame;
                     Vector3 newPosition = MathHelper.NanToZero(v.newValue);
@@ -452,6 +463,7 @@ namespace SwarmSequencer
                 selectedInstPosInNextFrame.SetValueWithoutNotify(MathHelper.NaNVector3);
                 selectedInstPosInNextFrame.RegisterValueChangedCallback((v) =>
                 {
+                    if (parent.SelectedProjectileInstance == null) return;
                     if (MathHelper.IsNaNVector3(v.newValue)) return;
                     int selectedFrame = parent.SelectedFrame + 1;
                     if (selectedFrame >= parent.FrameCount) parent.AddFrame(selectedFrame, false);
@@ -474,8 +486,14 @@ namespace SwarmSequencer
                 selectedInstPosInPrevFrame.SetValueWithoutNotify(MathHelper.NaNVector3);
                 selectedInstPosInPrevFrame.RegisterValueChangedCallback((v) =>
                 {
+                    if (parent.SelectedProjectileInstance == null) return;
                     if (MathHelper.IsNaNVector3(v.newValue)) return;
                     int selectedFrame = parent.SelectedFrame - 1;
+                    if (selectedFrame < 0)
+                    {
+                        selectedInstPosInPrevFrame.SetValueWithoutNotify(MathHelper.NaNVector3);
+                        return;
+                    }
                     Vector3 newPosition = MathHelper.NanToZero(v.newValue);
                     SerializableVector3 bezier = MathHelper.NaNVector3;
                     if (parent.SelectedProjectileInstance.FramePositionAndBezier.ContainsKey(selectedFrame))
@@ -495,6 +513,7 @@ namespace SwarmSequencer
                 selectedBezierCurrentToNext.SetValueWithoutNotify(MathHelper.NaNVector3);
                 selectedBezierCurrentToNext.RegisterValueChangedCallback((v) =>
                 {
+                    if (parent.SelectedProjectileInstance == null) return;
                     if (!parent.SelectedProjectileInstance.FramePositionAndBezier.ContainsKey(parent.SelectedFrame + 1)) return;
                     if (MathHelper.IsNaNVector3(v.newValue)) return;
                     int selectedFrame = parent.SelectedFrame;
@@ -503,11 +522,12 @@ namespace SwarmSequencer
                     selectedBezierCurrentToNext.SetValueWithoutNotify(newBezier);
                     SceneView.RepaintAll();
                 });
-
+                selectedBezierCurrentToNext.MakeDelayed();
                 selectedBezierPrevToCurrent = rootVisualElement.Q<Vector3Field>("bezierPrevFrame");
                 selectedBezierPrevToCurrent.SetValueWithoutNotify(MathHelper.NaNVector3);
                 selectedBezierPrevToCurrent.RegisterValueChangedCallback((v) =>
                 {
+                    if (parent.SelectedProjectileInstance == null) return;
                     if (!parent.SelectedProjectileInstance.FramePositionAndBezier.ContainsKey(parent.SelectedFrame - 1)) return;
                     if (MathHelper.IsNaNVector3(v.newValue)) return;
                     int selectedFrame = parent.SelectedFrame - 1;
@@ -516,6 +536,7 @@ namespace SwarmSequencer
                     selectedBezierPrevToCurrent.SetValueWithoutNotify(newBezier);
                     SceneView.RepaintAll();
                 });
+                selectedBezierPrevToCurrent.MakeDelayed();
 
                 selectedProjectilePreview = rootVisualElement.Q<IMGUIContainer>("selectedProjectilePreview");
 
@@ -578,12 +599,12 @@ namespace SwarmSequencer
                     selectedBezierPrevToCurrent.SetValueWithoutNotify(MathHelper.NaNVector3);
                     return;
                 }
-                selectedProjectileGroupLabel.text = selected.projectileInstanceID.ProjectilePrefabId.ToString();
-                selectedProjectileInstanceLabel.text = selected.projectileInstanceID.ProjectileInstanceID.ToString();
+                selectedProjectileGroupLabel.text = selected.instanceID.GroupIndex.ToString();
+                selectedProjectileInstanceLabel.text = selected.instanceID.InstanceIndex.ToString();
                 selectedProjectileInstanceColorField.value = selected.trailColor;
                 selectedProjectilePrefabField.value = selected.parent.prefab;
-                if (parent.projectileGroupContainerDict[selected.projectileInstanceID.ProjectilePrefabId].prefab != null)
-                    selectedInstancePrefabEditor = Editor.CreateEditor(parent.projectileGroupContainerDict[selected.projectileInstanceID.ProjectilePrefabId].prefab);
+                if (parent.projectileGroupContainerDict[selected.instanceID.GroupIndex].prefab != null)
+                    selectedInstancePrefabEditor = Editor.CreateEditor(parent.projectileGroupContainerDict[selected.instanceID.GroupIndex].prefab);
                 if (selected.FramePositionAndBezier.ContainsKey(parent.SelectedFrame))
                 {
                     selectedInstPosInCurrentFrame.SetValueWithoutNotify(selected.FramePositionAndBezier[parent.SelectedFrame].Item1);

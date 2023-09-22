@@ -44,6 +44,13 @@ namespace SwarmSequencer
                 if (activeSequenceCreator == null) return;
                 activeSequenceCreator.SelectModificationMode(SequenceCreator.ModificationMode.Eraser);
             }
+
+            [Shortcut("SequenceCreator/SelectFreehandMode", KeyCode.Alpha4, ShortcutModifiers.Alt)]
+            public static void SelectFreehandMode()
+            {
+                if (activeSequenceCreator == null) return;
+                activeSequenceCreator.SelectModificationMode(SequenceCreator.ModificationMode.Freehand);
+            }
         }
     }
 }

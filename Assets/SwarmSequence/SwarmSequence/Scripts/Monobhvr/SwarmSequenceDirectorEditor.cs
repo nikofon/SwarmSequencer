@@ -44,7 +44,7 @@ namespace SwarmSequencer
                             Action increment = () => { order *= -1; skipFrame = true; };
                             OnAnimationFinished += increment;
                             if (!skipFrame)
-                                ProjectileMovement();
+                                InstanceMovement();
                             if (t >= 1)
                             {
                                 if (!skipFrame)
@@ -62,7 +62,7 @@ namespace SwarmSequencer
                         case AnimationTypes.Repeat:
                             Action reset = () => { skipFrame = true; currentFrame = 0; };
                             OnAnimationFinished += reset;
-                            if (!skipFrame) ProjectileMovement();
+                            if (!skipFrame) InstanceMovement();
                             if (t >= 1)
                             {
                                 if (!skipFrame)
@@ -80,7 +80,7 @@ namespace SwarmSequencer
                         case AnimationTypes.Single:
                             Action stop = () => { StopAnimationEditor(); };
                             OnAnimationFinished += stop;
-                            ProjectileMovement();
+                            InstanceMovement();
                             if (t >= 1)
                             {
                                 currentFrame++;

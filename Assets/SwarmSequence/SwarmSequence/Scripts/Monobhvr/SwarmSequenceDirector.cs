@@ -62,7 +62,6 @@ namespace SwarmSequencer
 
         private List<FrameData> FrameDatas;
 
-        Dictionary<string, List<FrameData>> deserializedFrameDatas;
 
         Dictionary<ProjectileKey, Transform> projectilePositions = new Dictionary<ProjectileKey, Transform>();
 
@@ -110,7 +109,7 @@ namespace SwarmSequencer
                 currentTime = value;
                 t = DetermineTByTime(value);
                 if (frame < maxFrame)
-                    ProjectileMovement();
+                    InstanceMovement();
             }
         }
         float currentTime;
@@ -129,18 +128,16 @@ namespace SwarmSequencer
 
         //Advanced
 
-        [Tooltip("If checked, provided sequence will be deserealized on awake")]
-        public bool deserializeOnAwake = true;
-
         [Tooltip("Determines batch size for IJobParallelFor.Schedule()")]
         [Min(1)]
         public int batchSize = 1;
 
-        void ChangeFrame(int newTurn, DisposalMode dsplM = DisposalMode.Normal)
+        void ChangeFrame(int newFrame, DisposalMode dsplM = DisposalMode.Normal)
         {
+            Debug.Log($"Changing frame to {newFrame}");
             DisposeNativeCollections();
             DisposeBezierPoints();
-            if ((order > 0 && newTurn + 1 >= FrameDatas.Count) || (order < 0 && newTurn - 1 < 0))
+            if ((order > 0 && newFrame + 1 >= FrameDatas.Count) || (order < 0 && newFrame - 1 < 0))
             {
                 OnAnimationFinished?.Invoke();
                 return;
@@ -148,10 +145,10 @@ namespace SwarmSequencer
             t = 0;
             var timeOverride = frameTimeOverrides.Find(x => x.Equals(new FrameTimeOverride() { FrameOne = currentFrame, FrameTwo = currentFrame + order }));
             timeOverrideValue = timeOverride == null ? TimeBetweenFrames : timeOverride.value;
-            var pos = new Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>>(FrameDatas[newTurn].ProjectilePositionData);
+            var pos = new Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>>(FrameDatas[newFrame].ProjectilePositionData);
             Dictionary<ProjectileKey, Vector3> toInstantiate = new Dictionary<ProjectileKey, Vector3>();
             List<ProjectileKey> toRemove = new List<ProjectileKey>();
-            var nextPos = FrameDatas[newTurn + order].ProjectilePositionData;
+            var nextPos = FrameDatas[newFrame + order].ProjectilePositionData;
             foreach (var v in pos)
             {
                 var matrix = UseWorldSpace ? Matrix4x4.identity : transform.localToWorldMatrix;
@@ -161,7 +158,7 @@ namespace SwarmSequencer
                 InstantiateProjectiles(ref toInstantiate);
             foreach (var p in projectilePositions)
             {
-                if (!nextPos.ContainsKey(p.Key)) toRemove.Add(p.Key);
+                if (!nextPos.ContainsKey(p.Key) || !pos.ContainsKey(p.Key)) toRemove.Add(p.Key);
             }
             foreach (var trmv in toRemove)
             {
@@ -195,7 +192,54 @@ namespace SwarmSequencer
                 i++;
             }
 
-            OnFrameChanged?.Invoke(newTurn, newTurn + order);
+            OnFrameChanged?.Invoke(newFrame, newFrame + order);
+        }
+
+        /// <summary>
+        /// Returns a dictionary containing a path for each projectile
+        /// </summary>
+        /// <returns></returns>
+        public Dictionary<ProjectileKey, List<Vector3>> GetPaths()
+        {
+            if (FrameDatas == null) return null;
+            Dictionary<ProjectileKey, List<Vector3>> res = new Dictionary<ProjectileKey, List<Vector3>>();
+            foreach (var data in FrameDatas)
+            {
+                foreach (var pos in data.ProjectilePositionData)
+                {
+                    if (!res.ContainsKey(pos.Key))
+                    {
+                        List<Vector3> toAdd = new List<Vector3>();
+                        toAdd.Add(pos.Value.Item1);
+                        toAdd.Add(pos.Value.Item2);
+                        res.Add(pos.Key, toAdd);
+                    }
+                    else
+                    {
+                        res[pos.Key].Add(pos.Value.Item1);
+                        res[pos.Key].Add(pos.Value.Item2);
+                    }
+                }
+            }
+            Dictionary<ProjectileKey, List<Vector3>> bezierRes = new Dictionary<ProjectileKey, List<Vector3>>();
+            foreach (var KVPair in res)
+            {
+                List<Vector3> drawPoints = new List<Vector3>();
+                for (int i = 1; i < KVPair.Value.Count - 1; i += 2)
+                {
+                    Vector3 pZero = KVPair.Value[i - 1];
+                    Vector3 pOne = KVPair.Value[i];
+                    Vector3 pTwo = KVPair.Value[i + 1];
+                    if (MathHelper.IsNaNVector3(pOne))
+                    {
+                        pOne = (-pZero + pTwo) / 2;
+                    }
+                    drawPoints.AddRange(MathHelper.BezierAproximation(pZero, pTwo, pOne));
+                }
+                bezierRes.Add(KVPair.Key, drawPoints);
+            }
+
+            return bezierRes;
         }
 
         public int GetFrameByTime(float time)
@@ -277,9 +321,17 @@ namespace SwarmSequencer
             return t;
         }
 
-        void ProjectileMovement()
+        void InstanceMovement()
         {
-            JobHandle h = new MoveProjectiles() { transform = UseWorldSpace ? Matrix4x4.identity : transform.localToWorldMatrix, positions = currentPositions, bezierInterpolationPoints = bezierInterpolationPoints, originalPositions = originalPositions, targets = targetPositions, t = t }.Schedule(currentPositions.Length, batchSize);
+            JobHandle h = new MoveProjectiles()
+            {
+                transform = UseWorldSpace ? Matrix4x4.identity : transform.localToWorldMatrix,
+                positions = currentPositions,
+                bezierInterpolationPoints = bezierInterpolationPoints,
+                originalPositions = originalPositions,
+                targets = targetPositions,
+                t = t
+            }.Schedule(currentPositions.Length, batchSize);
             h.Complete();
             int i = 0;
             foreach (var s in projectilePositions)
@@ -300,15 +352,16 @@ namespace SwarmSequencer
         {
             foreach (var v in toInstantiate)
             {
-                var foundObj = Instances.Find(x => x.id == v.Key.ProjectilePrefabId);
+                var foundObj = Instances.Find(x => x.groupIndex == v.Key.GroupIndex);
                 if (foundObj == null)
                 {
                     Clear();
-                    throw new NoPrefabWithGivenIdFoundException($"No prefab with id {v.Key.ProjectilePrefabId} found, add prefab with this id to PrefabLookUps");
+                    throw new NoPrefabWithGivenIdFoundException($"No prefab for group {v.Key.GroupIndex} found");
                 }
                 GameObject go = foundObj.prefab;
+                if (go == null) throw new NullReferenceException($"Prefab for group {v.Key.GroupIndex} is null");
                 var g = Instantiate(go, v.Value, Quaternion.identity);
-                projectilePositions.Add(new ProjectileKey(v.Key.ProjectilePrefabId, v.Key.ProjectileInstanceID), g.transform);
+                projectilePositions.Add(new ProjectileKey(v.Key.GroupIndex, v.Key.InstanceIndex), g.transform);
             }
             projectilePositions.SortProjectileDictionary();
         }
@@ -343,7 +396,7 @@ namespace SwarmSequencer
                     swarmSequenceData = null;
                     FrameDatas = null;
                 }
-                else { swarmSequenceData = sequence; FrameDatas = sequence.Frames; Debug.Log($"Frame data count: {FrameDatas.Count}"); }
+                else { swarmSequenceData = sequence; FrameDatas = sequence.Frames; }
                 return true;
             }
         }
@@ -450,10 +503,13 @@ namespace SwarmSequencer
             paused = true;
         }
 
-        IEnumerator RunSequence(bool useFixedTime = false, float fixedTime = 0)
+        IEnumerator RunSequence(bool useFixedTime = false, float fixedTime = 0.002f)
         {
+            Debug.Log("started sequence");
             YieldInstruction waitAmount;
-            if (!useFixedTime) waitAmount = new WaitForEndOfFrame();
+            YieldInstruction endOfFrame = new WaitForEndOfFrame();
+
+            if (!useFixedTime) waitAmount = endOfFrame;
             else waitAmount = new WaitForSeconds(fixedTime);
             while (active)
             {
@@ -465,7 +521,7 @@ namespace SwarmSequencer
                             Action increment = () => { order *= -1; skipFrame = true; };
                             OnAnimationFinished += increment;
                             if (!skipFrame)
-                                ProjectileMovement();
+                                InstanceMovement();
                             if (t >= 1)
                             {
                                 if (!skipFrame)
@@ -481,12 +537,14 @@ namespace SwarmSequencer
                         case AnimationTypes.Repeat:
                             Action reset = () => { skipFrame = true; currentFrame = 0; };
                             OnAnimationFinished += reset;
-                            if (!skipFrame) ProjectileMovement();
+                            if (!skipFrame) InstanceMovement();
                             if (t >= 1)
                             {
                                 if (!skipFrame)
                                 {
                                     currentFrame++;
+                                    DisposeNativeCollections();
+                                    DisposeBezierPoints();
                                 }
                                 else { skipFrame = false; }
                                 ChangeFrame(currentFrame, DisposalMode.Normal);
@@ -497,7 +555,7 @@ namespace SwarmSequencer
                         case AnimationTypes.Single:
                             Action stop = () => { Stop(); };
                             OnAnimationFinished += stop;
-                            ProjectileMovement();
+                            InstanceMovement();
                             if (t >= 1)
                             {
                                 currentFrame++;
@@ -510,7 +568,7 @@ namespace SwarmSequencer
                     if (!useFixedTime) { t += Time.deltaTime / timeOverrideValue; currentTime += order * Time.deltaTime; }
                     else { currentTime += order * fixedTime; t += fixedTime / timeOverrideValue; }
                 }
-                else { yield return waitAmount; }
+                else { yield return endOfFrame; }
             }
         }
 
@@ -548,10 +606,6 @@ namespace SwarmSequencer
             }
             if (Application.isPlaying && PlayOnAwake)
                 Play();
-            if (deserializeOnAwake && swarmSequenceData != null)
-            {
-                swarmSequenceData.ForceDeserialize();
-            }
         }
 
         void DisposeNativeCollections()

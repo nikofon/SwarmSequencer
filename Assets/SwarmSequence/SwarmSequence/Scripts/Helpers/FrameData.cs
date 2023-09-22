@@ -51,37 +51,37 @@ namespace SwarmSequencer
     public struct ProjectileKey : IComparable<ProjectileKey>
     {
         [Min(0)]
-        public int ProjectilePrefabId;
+        public int GroupIndex;
         [Min(0)]
-        public int ProjectileInstanceID;
+        public int InstanceIndex;
 
         public ProjectileKey(int projectilePrefabId, int prokectileInternalId)
         {
-            ProjectilePrefabId = projectilePrefabId;
-            ProjectileInstanceID = prokectileInternalId;
+            GroupIndex = projectilePrefabId;
+            InstanceIndex = prokectileInternalId;
         }
 
         public override bool Equals(object obj)
         {
             if ((obj == null) || !this.GetType().Equals(obj.GetType())) return false;
             var o = (ProjectileKey)obj;
-            return ProjectilePrefabId == o.ProjectilePrefabId && ProjectileInstanceID == o.ProjectileInstanceID;
+            return GroupIndex == o.GroupIndex && InstanceIndex == o.InstanceIndex;
         }
 
         public int CompareTo(ProjectileKey other)
         {
-            if (other.ProjectilePrefabId > ProjectilePrefabId) return -1;
-            if (other.ProjectilePrefabId == ProjectilePrefabId)
+            if (other.GroupIndex > GroupIndex) return -1;
+            if (other.GroupIndex == GroupIndex)
             {
-                if (other.ProjectileInstanceID > ProjectileInstanceID) return -1;
-                else if (other.ProjectileInstanceID == ProjectileInstanceID) return 0;
+                if (other.InstanceIndex > InstanceIndex) return -1;
+                else if (other.InstanceIndex == InstanceIndex) return 0;
             }
             return 1;
         }
 
         public override string ToString()
         {
-            return $"ProjectilePrefabId: {ProjectilePrefabId} ProjectileInternalId: {ProjectileInstanceID}";
+            return $"GroupIndex: {GroupIndex} InstanceIndex: {InstanceIndex}";
         }
     }
 
@@ -106,6 +106,7 @@ namespace SwarmSequencer
         }
 
         public static SerializableVector3 operator -(SerializableVector3 a, SerializableVector3 b) => new SerializableVector3(a.x - b.x, a.y - b.y, a.z - b.z);
+        public static SerializableVector3 operator -(SerializableVector3 a) => new SerializableVector3(-a.x, -a.y, -a.z);
         public static SerializableVector3 operator +(SerializableVector3 a, SerializableVector3 b) => new SerializableVector3(a.x + b.x, a.y + b.y, a.z + b.z);
         public static SerializableVector3 operator /(SerializableVector3 a, float b) => new SerializableVector3(a.x / b, a.y / b, a.z / b);
         public static bool operator ==(SerializableVector3 a, SerializableVector3 b) => a.x == b.x && a.y == b.y && a.z == b.z;
@@ -128,7 +129,7 @@ namespace SwarmSequencer
     {
         public GameObject prefab;
         [Min(0)]
-        public int id = 0;
+        public int groupIndex = 0;
     }
 
     [System.Serializable]

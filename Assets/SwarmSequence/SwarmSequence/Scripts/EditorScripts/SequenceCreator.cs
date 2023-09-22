@@ -266,6 +266,7 @@ namespace SwarmSequencer
 
             internal void SelectProjectileInstance(ProjectileInstanceContainer instance)
             {
+
                 SelectedProjectileInstanceUI.UpdateSelectedInstanceUI(instance);
                 SelectedProjectileInstance = instance;
             }
@@ -326,20 +327,10 @@ namespace SwarmSequencer
             }
             void AddProjectileInstance(ProjectileGroupUI group)
             {
-                var i = group.AddProjectileInstance();
-                i.root.Q<ToolbarButton>("DeleteInstanceButton").clicked += () =>
-                {
-                    DeleteProjectileInstance(group, i.projectileInstanceID.ProjectileInstanceID);
-                };
-
-                i.root.Q<Button>("SelectInstanceButton").clicked += () =>
-                {
-                    SelectProjectileInstance(i);
-                };
-
+                group.AddProjectileInstance();
             }
 
-            void DeleteProjectileInstance(ProjectileGroupUI group, int projectileInstanceIndex)
+            internal void DeleteProjectileInstance(ProjectileGroupUI group, int projectileInstanceIndex)
             {
                 if (SelectedProjectileInstance == group.projectileInstances[projectileInstanceIndex]) SelectProjectileInstance(null);
                 group.root.style.height = new StyleLength(new Length(group.root.resolvedStyle.height - ProjectileInstanceContainer.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
@@ -351,7 +342,7 @@ namespace SwarmSequencer
                 int currentCount = frameCount;
                 for (int i = 0; i < amountToAdd; i++)
                 {
-                    AddFrame(i + currentCount);
+                    AddFrame(i + currentCount, false);
                 }
             }
 
@@ -359,6 +350,7 @@ namespace SwarmSequencer
             {
                 if (frameIndex != frameCount)
                 {
+                    Debug.Log($"shifting frames for frame {frameIndex}");
                     ShiftFramesInProjectileInstances(frameIndex, 1);
                     ClearFrame(frameIndex);
                 }
@@ -451,16 +443,17 @@ namespace SwarmSequencer
                         {
                             if (prj.Value.FramePositionAndBezier.ContainsKey(frameIndex + 1) && !MathHelper.IsNaNVector3(prj.Value.FramePositionAndBezier[frameIndex].Item2))
                             {
-                                SerializableVector3 newBezier = grid.WorldToRelativePos(Handles.PositionHandle(grid.RelativeToWorldPos(prj.Value.FramePositionAndBezier[frameIndex].Item2), gridRotation));
-                                if (newBezier != prj.Value.FramePositionAndBezier[frameIndex].Item2)
+                                Vector3 newBezier = grid.WorldToRelativePos(Handles.PositionHandle(grid.RelativeToWorldPos(prj.Value.FramePositionAndBezier[frameIndex].Item2), gridRotation));
+                                float delta = (newBezier - (Vector3)prj.Value.FramePositionAndBezier[frameIndex].Item2).sqrMagnitude;
+                                if ((newBezier - (Vector3)prj.Value.FramePositionAndBezier[frameIndex].Item2).sqrMagnitude > Vector3.kEpsilon)
                                 {
                                     prj.Value.SetPositionInFrame(frameIndex, prj.Value.FramePositionAndBezier[frameIndex].Item1, newBezier, grid);
                                 }
                             }
                             if (prj.Value.FramePositionAndBezier.ContainsKey(frameIndex - 1) && !MathHelper.IsNaNVector3(prj.Value.FramePositionAndBezier[frameIndex - 1].Item2))
                             {
-                                SerializableVector3 newBezier = grid.WorldToRelativePos(Handles.PositionHandle(grid.RelativeToWorldPos(prj.Value.FramePositionAndBezier[frameIndex - 1].Item2), gridRotation));
-                                if (newBezier != prj.Value.FramePositionAndBezier[frameIndex - 1].Item2)
+                                Vector3 newBezier = grid.WorldToRelativePos(Handles.PositionHandle(grid.RelativeToWorldPos(prj.Value.FramePositionAndBezier[frameIndex - 1].Item2), gridRotation));
+                                if ((newBezier - (Vector3)prj.Value.FramePositionAndBezier[frameIndex - 1].Item2).sqrMagnitude > Vector3.kEpsilon)
                                 {
                                     prj.Value.SetPositionInFrame(frameIndex - 1, prj.Value.FramePositionAndBezier[frameIndex - 1].Item1, newBezier, grid);
                                 }
@@ -479,7 +472,10 @@ namespace SwarmSequencer
                     {
                         if (prj.Value.FramePositionAndBezier.ContainsKey(frameIndex))
                         {
-                            SerializableVector3 newPosition = grid.WorldToRelativePos(Handles.PositionHandle(grid.RelativeToWorldPos(prj.Value.FramePositionAndBezier[frameIndex].Item1), gridRotation));
+                            Vector3 oldPos = grid.RelativeToWorldPos(prj.Value.FramePositionAndBezier[frameIndex].Item1);
+                            Vector3 newPos = Handles.PositionHandle(oldPos, gridRotation);
+                            if ((newPos - oldPos).sqrMagnitude < Vector3.kEpsilon) continue;
+                            SerializableVector3 newPosition = grid.WorldToRelativePos(newPos);
                             prj.Value.SetPositionInFrame(frameIndex, newPosition, prj.Value.FramePositionAndBezier[frameIndex].Item2, grid);
 
                         }
@@ -629,7 +625,7 @@ namespace SwarmSequencer
                 DrawFramesRecursively(frameToDraw, null, lookBackwardsAmount, true, -1, meshSize, meshSizeDecay);
             }
 
-            void DrawFramesRecursively(int frameToDraw, Dictionary<ProjectileKey, Tuple<Vector3, Vector3>> connexionPositions, int propogationAmount, bool skipFirstDraw, int direction, float meshSize, float meshSizeDecay)
+            void DrawFramesRecursively(int frameToDraw, Dictionary<ProjectileKey, Tuple<Vector3, Vector3>> connectionPositions, int propogationAmount, bool skipFirstDraw, int direction, float meshSize, float meshSizeDecay)
             {
                 Dictionary<ProjectileKey, Tuple<Vector3, Vector3>> projPositions = new Dictionary<ProjectileKey, Tuple<Vector3, Vector3>>();
                 foreach (var prjGrp in projectileGroupContainerDict)
@@ -653,15 +649,15 @@ namespace SwarmSequencer
                             Handles.BeginGUI();
                             Handles.Label(thisFramePos, (frameToDraw + 1).ToString());
                             Handles.EndGUI();
-                            if (connexionPositions != null && connexionPositions.ContainsKey(prj.Value.projectileInstanceID))
+                            if (connectionPositions != null && connectionPositions.ContainsKey(prj.Value.instanceID))
                             {
-                                Vector3 bezierToUse = direction == -1 ? thisFrameBezier : connexionPositions[prj.Value.projectileInstanceID].Item2;
+                                Vector3 bezierToUse = direction == -1 ? thisFrameBezier : connectionPositions[prj.Value.instanceID].Item2;
                                 Handles.DrawAAPolyLine(5f,
-                                    MathHelper.BezierAproximation(thisFramePos, connexionPositions[prj.Value.projectileInstanceID].Item1, bezierToUse));
+                                    MathHelper.BezierAproximation(thisFramePos, connectionPositions[prj.Value.instanceID].Item1, bezierToUse));
 
                             }
                         }
-                        projPositions.Add(prj.Value.projectileInstanceID, new Tuple<Vector3, Vector3>(thisFramePos, thisFrameBezier));
+                        projPositions.Add(prj.Value.instanceID, new Tuple<Vector3, Vector3>(thisFramePos, thisFrameBezier));
                     }
                 }
                 if (propogationAmount != 0 && frameToDraw + direction < frameCount && frameToDraw + direction >= 0)
@@ -718,13 +714,13 @@ namespace SwarmSequencer
                 {
                     foreach (var v in data.ProjectileLookUps)
                     {
-                        if (projectileGroupContainerDict.ContainsKey(v.id))
+                        if (projectileGroupContainerDict.ContainsKey(v.groupIndex))
                         {
-                            projectileGroupContainerDict[v.id].ChangePrefab(v.prefab);
+                            projectileGroupContainerDict[v.groupIndex].ChangePrefab(v.prefab);
                         }
                         else
                         {
-                            var g = AddNewProjectileGroupContainer(v.id);
+                            var g = AddNewProjectileGroupContainer(v.groupIndex);
                             g.ChangePrefab(v.prefab);
                         }
                     }
@@ -736,31 +732,42 @@ namespace SwarmSequencer
                 int frameCount = 0;
                 foreach (var f in sequence.Frames)
                 {
-                    frameCount++;
                     foreach (var inst in f.ProjectilePositionData)
                     {
-                        if (!projectileGroupContainerDict.ContainsKey(inst.Key.ProjectilePrefabId))
+                        Vector3 bezier = inst.Value.Item2;
+                        if (MathHelper.IsNaNVector3(bezier))
                         {
-                            var g = AddNewProjectileGroupContainer(inst.Key.ProjectilePrefabId);
-                            var i = g.AddProjectileInstance(inst.Key.ProjectileInstanceID);
-                            i.SetPositionInFrame(f.Order, inst.Value.Item1, inst.Value.Item2);
+                            if (frameCount < sequence.Frames.Count - 1)
+                            {
+                                if (sequence.Frames[frameCount + 1].ProjectilePositionData.ContainsKey(inst.Key))
+                                {
+                                    bezier = (sequence.Frames[frameCount + 1].ProjectilePositionData[inst.Key].Item1 + sequence.Frames[frameCount].ProjectilePositionData[inst.Key].Item1) / 2;
+                                }
+                            }
+                        }
+                        if (!projectileGroupContainerDict.ContainsKey(inst.Key.GroupIndex))
+                        {
+                            var g = AddNewProjectileGroupContainer(inst.Key.GroupIndex);
+                            var i = g.AddProjectileInstance(inst.Key.InstanceIndex);
+                            i.SetPositionInFrame(f.Order, inst.Value.Item1, bezier);
                         }
                         else
                         {
-                            var g = projectileGroupContainerDict[inst.Key.ProjectilePrefabId];
-                            if (!g.projectileInstances.ContainsKey(inst.Key.ProjectileInstanceID))
+                            var g = projectileGroupContainerDict[inst.Key.GroupIndex];
+                            if (!g.projectileInstances.ContainsKey(inst.Key.InstanceIndex))
                             {
-                                g.AddProjectileInstance(inst.Key.ProjectileInstanceID);
+                                g.AddProjectileInstance(inst.Key.InstanceIndex);
                             }
-                            g.projectileInstances[inst.Key.ProjectileInstanceID].SetPositionInFrame(f.Order, inst.Value.Item1, inst.Value.Item2);
+                            g.projectileInstances[inst.Key.InstanceIndex].SetPositionInFrame(f.Order, inst.Value.Item1, bezier);
                         }
                     }
+                    frameCount++;
                 }
+                projectileGroupIntField.SetValueWithoutNotify(FindFreeProjectileGroupIndex());
                 if (frameCount > this.frameCount)
                 {
                     AddMultipleFrames(frameCount - this.frameCount);
                 }
-
             }
 
             bool SerializeResult()
@@ -786,12 +793,12 @@ namespace SwarmSequencer
                             Tuple<SerializableVector3, SerializableVector3> res = new Tuple<SerializableVector3, SerializableVector3>(frame.Value.Item1, bezier);
                             if (activeFrame != null)
                             {
-                                activeFrame.ProjectilePositionData.Add(prj.Value.projectileInstanceID, res);
+                                activeFrame.ProjectilePositionData.Add(prj.Value.instanceID, res);
                             }
                             else
                             {
                                 var dict = new Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>>();
-                                dict.Add(prj.Value.projectileInstanceID, res);
+                                dict.Add(prj.Value.instanceID, res);
                                 data.Add(new FrameData(dict, frame.Key));
                             }
                         }
@@ -809,7 +816,7 @@ namespace SwarmSequencer
                 {
                     if (g.Value.prefab != null)
                     {
-                        res.Add(new InstanceLookUp() { prefab = g.Value.prefab, id = g.Key });
+                        res.Add(new InstanceLookUp() { prefab = g.Value.prefab, groupIndex = g.Key });
                     }
                 }
                 return res;
