@@ -9,6 +9,7 @@ UIElementsSchema/
 UserSettings/
 ProjectSettings/
 Assets/SwarmSequence/Example
+Assets/SwarmSequence/Example.meta
 
 
 *.gitattributes
