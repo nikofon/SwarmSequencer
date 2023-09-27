@@ -10,7 +10,7 @@ namespace SwarmSequencer
 {
     namespace EditorTools
     {
-        public class ProjectileGroupUI
+        public class ProjectileGroupContainer
         {
             public GameObject prefab
             {
@@ -31,7 +31,7 @@ namespace SwarmSequencer
             public VisualElement root;
             public int projectileGroupID;
 
-            public bool projectilesShown = true;
+            public bool visability = true;
 
             public VisualElement projectileInstanceContainer;
 
@@ -41,11 +41,13 @@ namespace SwarmSequencer
 
             public Dictionary<int, ProjectileInstanceContainer> projectileInstances = new Dictionary<int, ProjectileInstanceContainer>();
 
+            ToolbarButton visibilityButton;
+
             VisualTreeAsset projectileInstanceAsset;
             Button showProjectielListButton;
             ObjectField gof;
 
-            public ProjectileGroupUI(VisualElement root, int projectileGroupID, VisualElement projectileInstanceContainer, SequenceCreator parent, VisualTreeAsset projectileInstanceAsset)
+            public ProjectileGroupContainer(VisualElement root, int projectileGroupID, VisualElement projectileInstanceContainer, SequenceCreator parent, VisualTreeAsset projectileInstanceAsset)
             {
                 this.root = root;
                 this.projectileGroupID = projectileGroupID;
@@ -58,7 +60,7 @@ namespace SwarmSequencer
                     if (projectileInstances.Count != 0)
                     {
                         ChangeProjectilesVisability();
-                        if (projectilesShown) showProjectielListButton.text = "Hide projectile list";
+                        if (visability) showProjectielListButton.text = "Hide projectile list";
                         else showProjectielListButton.text = "Show projectile list";
                     }
                 };
@@ -85,12 +87,32 @@ namespace SwarmSequencer
                     prefab = (GameObject)v.newValue;
                     parent.SelectedProjectileInstanceUI.UpdateSelectedInstanceUI();
                 });
+
+                visibilityButton = root.Q<ToolbarButton>("ChangeVisibilityButton");
+
+                visibilityButton.clicked += () =>
+                {
+                    ChangeVisibility(!visability);
+                };
+
+                visibilityButton.style.backgroundColor = SequenceCreator.indicatingGreen;
             }
 
             public void ChangePrefab(GameObject newPrefab)
             {
                 prefab = newPrefab;
                 gof.value = newPrefab;
+            }
+
+            public void ChangeVisibility(bool visible)
+            {
+                visability = visible;
+                foreach (var i in projectileInstances)
+                {
+                    i.Value.ChangeVisibility(visible);
+                }
+                visibilityButton.style.backgroundColor = visible ? SequenceCreator.indicatingGreen : SequenceCreator.indicatingRed;
+                SceneView.RepaintAll();
             }
 
             public void DeleteProjectileInstance(int projectileIndex)
@@ -112,7 +134,7 @@ namespace SwarmSequencer
                 newInstance.Q<IntegerField>().value = projectileIndex;
                 var projInstance = new ProjectileInstanceContainer(this, newInstance, projectileIndex, projectileGroupID, trailColor);
                 projectileInstances.Add(projectileIndex, projInstance);
-                if (projectilesShown)
+                if (visability)
                 {
                     projectileInstanceContainer.Add(newInstance);
                     root.style.height = new StyleLength(new Length(root.resolvedStyle.height + ProjectileInstanceContainer.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
@@ -126,7 +148,7 @@ namespace SwarmSequencer
 
             public void ChangeProjectilesVisability()
             {
-                ChangeProjectilesVisability(!projectilesShown);
+                ChangeProjectilesVisability(!visability);
             }
 
             int FindFreeIndex()
@@ -142,7 +164,7 @@ namespace SwarmSequencer
             public void ChangeProjectilesVisability(bool changeTo)
             {
                 if (projectileInstances.Count == 0) return;
-                projectilesShown = changeTo;
+                visability = changeTo;
                 if (changeTo)
                 {
                     foreach (var i in projectileInstances)
@@ -159,7 +181,7 @@ namespace SwarmSequencer
                     }
                     root.style.height = new StyleLength(new Length(root.resolvedStyle.height - projectileInstances.Count * ProjectileInstanceContainer.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
                 }
-                if (projectilesShown) showProjectielListButton.text = "Hide instance list";
+                if (visability) showProjectielListButton.text = "Hide instance list";
                 else showProjectielListButton.text = "Show instance list";
             }
         }
@@ -178,11 +200,13 @@ namespace SwarmSequencer
             public readonly ProjectileKey instanceID;
 
             public VisualElement[] borderElements;
-            public ProjectileGroupUI parent;
+            public ProjectileGroupContainer parent;
             public ColorField trailColorField;
             Dictionary<int, Vector2> viewportPositionInFrame = new Dictionary<int, Vector2>();
 
             public Dictionary<int, Tuple<SerializableVector3, SerializableVector3>> FramePositionAndBezier = new Dictionary<int, Tuple<SerializableVector3, SerializableVector3>>();
+
+            ToolbarButton visibilityButton;
 
 
 
@@ -249,7 +273,7 @@ namespace SwarmSequencer
                     new Tuple<SerializableVector3, SerializableVector3>(FramePositionAndBezier[frameIndex].Item1, b);
                 }
             }
-            public ProjectileInstanceContainer(ProjectileGroupUI parent, VisualElement root, int projectileInstanceID, int projectileGroupID, Color trailColor)
+            public ProjectileInstanceContainer(ProjectileGroupContainer parent, VisualElement root, int projectileInstanceID, int projectileGroupID, Color trailColor)
             {
                 this.parent = parent;
                 this.root = root;
@@ -300,11 +324,27 @@ namespace SwarmSequencer
                     parent.parent.SelectProjectileInstance(this);
                 };
 
+                visibilityButton = root.Q<ToolbarButton>("ChangeVisabilityButton");
+
+                visibilityButton.clicked += () =>
+                {
+                    ChangeVisibility(!visible);
+                };
+
+                ChangeVisibility(true);
+
                 borderElements = new VisualElement[]{
                 root.Q<VisualElement>("BorderContainerOne"),
                 root.Q<VisualElement>("BorderContainerTwo"),
                 root.Q<VisualElement>("BorderContainerThree"),
                 };
+            }
+
+            public void ChangeVisibility(bool visibility)
+            {
+                visible = visibility;
+                visibilityButton.style.backgroundColor = visible ? SequenceCreator.indicatingGreen : SequenceCreator.indicatingRed;
+                SceneView.RepaintAll();
             }
 
             internal void UpdatePositionUI()

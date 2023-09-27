@@ -74,7 +74,7 @@ namespace SwarmSequencer
 
             Matrix4x4 sceneCameraMatrix;
 
-            public Dictionary<int, ProjectileGroupUI> projectileGroupContainerDict = new Dictionary<int, ProjectileGroupUI>();
+            public Dictionary<int, ProjectileGroupContainer> projectileGroupContainerDict = new Dictionary<int, ProjectileGroupContainer>();
 
             public SelectedProjectileInstanceUI SelectedProjectileInstanceUI { get; private set; }
 
@@ -307,10 +307,10 @@ namespace SwarmSequencer
                 SelectedProjectileInstanceUI.UpdateSelectedInstanceUI();
             }
 
-            ProjectileGroupUI AddNewProjectileGroupContainer(int containerIndex)
+            ProjectileGroupContainer AddNewProjectileGroupContainer(int containerIndex)
             {
                 VisualElement newContainer = projectileContainerAsset.CloneTree();
-                ProjectileGroupUI projGroup = new ProjectileGroupUI(newContainer, containerIndex, newContainer.Q<VisualElement>("root"), this, projectileInstanceAsset);
+                ProjectileGroupContainer projGroup = new ProjectileGroupContainer(newContainer, containerIndex, newContainer.Q<VisualElement>("root"), this, projectileInstanceAsset);
                 newContainer.Q<IntegerField>("projectileGroupIndexField").value = containerIndex;
                 newContainer.Q<ToolbarButton>("DeleteButton").clicked += () => DeleteProjectielGroupContainer(containerIndex);
                 newContainer.Q<Button>("AddProjectileButton").clicked += () => AddProjectileInstance(projGroup);
@@ -325,12 +325,12 @@ namespace SwarmSequencer
                 projectileGroupContainerDict.Remove(containerIndex);
                 projectileGroupIntField.value = FindFreeProjectileGroupIndex();
             }
-            void AddProjectileInstance(ProjectileGroupUI group)
+            void AddProjectileInstance(ProjectileGroupContainer group)
             {
                 group.AddProjectileInstance();
             }
 
-            internal void DeleteProjectileInstance(ProjectileGroupUI group, int projectileInstanceIndex)
+            internal void DeleteProjectileInstance(ProjectileGroupContainer group, int projectileInstanceIndex)
             {
                 if (SelectedProjectileInstance == group.projectileInstances[projectileInstanceIndex]) SelectProjectileInstance(null);
                 group.root.style.height = new StyleLength(new Length(group.root.resolvedStyle.height - ProjectileInstanceContainer.BLOCK_PIXEL_HEIGHT, LengthUnit.Pixel));
@@ -402,6 +402,7 @@ namespace SwarmSequencer
             internal Vector3 GetViewportFromRelativePosition(Vector3 relativePosition)
             {
                 var position = grid.RelativeToWorldPos(relativePosition);
+                if (SceneView.currentDrawingSceneView == null) return MathHelper.NaNVector3;
                 return SceneView.currentDrawingSceneView.camera.WorldToViewportPoint(position);
             }
 

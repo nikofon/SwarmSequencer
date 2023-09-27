@@ -10,7 +10,8 @@ UserSettings/
 ProjectSettings/
 Assets/SwarmSequence/Example
 Assets/SwarmSequence/Example.meta
-
+Assets/Resources
+Assets/Resources.meta
 
 *.gitattributes
 *.vsconfig
