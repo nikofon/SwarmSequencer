@@ -180,20 +180,11 @@ namespace SwarmSequencer
             public VisualElement[] borderElements;
             public ProjectileGroupUI parent;
             public ColorField trailColorField;
-            Dictionary<int, int> cellPositionInFrame = new Dictionary<int, int>();
+            Dictionary<int, Vector2> viewportPositionInFrame = new Dictionary<int, Vector2>();
 
             public Dictionary<int, Tuple<SerializableVector3, SerializableVector3>> FramePositionAndBezier = new Dictionary<int, Tuple<SerializableVector3, SerializableVector3>>();
 
-            /// <summary>
-            /// Returns index of a cell in which this projectile is positioned at a given frame
-            /// </summary>
-            /// <param name="frame"></param>
-            /// <returns>Cell index</returns>
-            public int GetCellIndex(int frame)
-            {
-                if (!cellPositionInFrame.ContainsKey(frame)) return int.MinValue;
-                return cellPositionInFrame[frame];
-            }
+
 
             /// <summary>
             /// Deletes this projectile from the given frame
@@ -201,30 +192,11 @@ namespace SwarmSequencer
             /// <param name="frameIndex"></param>
             public void ClearFrame(int frameIndex)
             {
-                ClearCellPosition(frameIndex);
                 ClearPosition(frameIndex);
+                ClearScreenPosition(frameIndex);
                 if (parent.parent.SelectedFrame == frameIndex) UpdatePositionUI();
             }
 
-            /// <summary>
-            /// Sets position in the given frame by adding an entry to FramePositionAndBezier dictionary.
-            /// DOES NOT AUTOMATICALLY CALCULATE CELL POSITION, USE OVERLOAD METHOD WITH GRID PARAMETER TO DO SO!
-            /// </summary>
-            /// <param name="frame"></param>
-            /// <param name="position"></param>
-            /// <param name="bezierControl"></param>
-            public void SetPositionInFrame(int frame, SerializableVector3 position, SerializableVector3 bezierControl)
-            {
-                FramePositionAndBezier[frame] = new Tuple<SerializableVector3, SerializableVector3>(position, bezierControl);
-            }
-
-            public void SetPositionInFrameByCell(int frame, int cellIndex, float depth, SerializableVector3 bezierControl, SwarmSequencer.MathTools.Grid grid)
-            {
-                Vector2 pos = grid.CellIndexToRelativePosition(cellIndex);
-                Vector3 position = new Vector3(pos.x, pos.y, depth);
-                FramePositionAndBezier[frame] = new Tuple<SerializableVector3, SerializableVector3>(position, bezierControl);
-                SetCellIndex(frame, cellIndex);
-            }
 
             /// <summary>
             /// Sets position in frame by adding an entry to FramePositionAndBezier dictionary.
@@ -234,10 +206,10 @@ namespace SwarmSequencer
             /// <param name="position"></param>
             /// <param name="bezierControl"></param>
             /// <param name="grid"></param>
-            internal void SetPositionInFrame(int frame, SerializableVector3 position, SerializableVector3 bezierControl, SwarmSequencer.MathTools.Grid grid)
+            internal void SetPositionInFrame(int frame, SerializableVector3 position, SerializableVector3 bezierControl, Vector2 screenPosition)
             {
                 FramePositionAndBezier[frame] = new Tuple<SerializableVector3, SerializableVector3>(position, bezierControl);
-                SetCellIndex(frame, grid.RelativePositionToCellIndex(position.x, position.y));
+                viewportPositionInFrame[frame] = screenPosition;
                 if (frame == parent.parent.SelectedFrame) UpdatePositionUI();
             }
 
@@ -246,25 +218,25 @@ namespace SwarmSequencer
                 FramePositionAndBezier[frame] = new Tuple<SerializableVector3, SerializableVector3>(FramePositionAndBezier[frame].Item1, bezierControl);
             }
 
-
-            /// <summary>
-            /// Sets in what cell the projectile is located in the given frame
-            /// </summary>
-            /// <param name="frame"></param>
-            /// <param name="cellIndex"></param>
-            internal void SetCellIndex(int frame, int cellIndex)
+            internal void SetScreenPositionInFrame(int frame, Vector2 position)
             {
-                cellPositionInFrame[frame] = cellIndex;
-            }
-
-            void ClearCellPosition(int frame)
-            {
-                cellPositionInFrame.Remove(frame);
+                viewportPositionInFrame[frame] = position;
             }
 
             void ClearPosition(int frame)
             {
                 FramePositionAndBezier.Remove(frame);
+            }
+
+            void ClearScreenPosition(int frame)
+            {
+                viewportPositionInFrame.Remove(frame);
+            }
+
+            public Vector2 GetViewportPosition(int frame)
+            {
+                if (!viewportPositionInFrame.ContainsKey(frame)) return MathHelper.NaNVector3;
+                return viewportPositionInFrame[frame];
             }
 
 
@@ -312,7 +284,7 @@ namespace SwarmSequencer
                         }
                         else { bezier = FramePositionAndBezier[selectedFrame].Item2; }
                     }
-                    SetPositionInFrame(selectedFrame, newPosition, bezier, parent.parent.grid);
+                    SetPositionInFrame(selectedFrame, newPosition, bezier, parent.parent.GetViewportFromRelativePosition(newPosition));
                     positionField.SetValueWithoutNotify(newPosition);
                     parent.parent.SelectedProjectileInstanceUI.UpdateSelectedInstanceUI();
                     SceneView.RepaintAll();
@@ -454,7 +426,7 @@ namespace SwarmSequencer
                         }
                         else { bezier = parent.SelectedProjectileInstance.FramePositionAndBezier[selectedFrame].Item2; }
                     }
-                    parent.SelectedProjectileInstance.SetPositionInFrame(selectedFrame, newPosition, bezier, parent.grid);
+                    parent.SelectedProjectileInstance.SetPositionInFrame(selectedFrame, newPosition, bezier, parent.GetViewportFromRelativePosition(newPosition));
                     selectedInstPosInCurrentFrame.SetValueWithoutNotify(newPosition);
                     SceneView.RepaintAll();
                 });
@@ -477,7 +449,7 @@ namespace SwarmSequencer
                         }
                         else { bezier = parent.SelectedProjectileInstance.FramePositionAndBezier[selectedFrame].Item2; }
                     }
-                    parent.SelectedProjectileInstance.SetPositionInFrame(selectedFrame, newPosition, bezier, parent.grid);
+                    parent.SelectedProjectileInstance.SetPositionInFrame(selectedFrame, newPosition, bezier, parent.GetViewportFromRelativePosition(newPosition));
                     selectedInstPosInNextFrame.SetValueWithoutNotify(newPosition);
                     SceneView.RepaintAll();
                 });
@@ -504,7 +476,7 @@ namespace SwarmSequencer
                         }
                         else { bezier = parent.SelectedProjectileInstance.FramePositionAndBezier[selectedFrame].Item2; }
                     }
-                    parent.SelectedProjectileInstance.SetPositionInFrame(selectedFrame, newPosition, bezier, parent.grid);
+                    parent.SelectedProjectileInstance.SetPositionInFrame(selectedFrame, newPosition, bezier, parent.GetViewportFromRelativePosition(newPosition));
                     selectedInstPosInPrevFrame.SetValueWithoutNotify(newPosition);
                     SceneView.RepaintAll();
                 });

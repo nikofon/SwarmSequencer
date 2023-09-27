@@ -92,7 +92,7 @@ namespace SwarmSequencer
                 Freehand
             }
 
-            const float editorPrecision = 1e-2f;
+            const float editorPrecision = 1e-4f;
 
             [MenuItem("/Window/SwarmSequence/SequenceCreator")]
             private static void ShowWindow()
@@ -299,7 +299,7 @@ namespace SwarmSequencer
 
             void AddInstanceInfoToFrame(int frameIndex, ProjectileInstanceContainer key, SerializableVector3 position, SerializableVector3 bezierControl)
             {
-                key.SetPositionInFrame(frameIndex, position, bezierControl, grid);
+                key.SetPositionInFrame(frameIndex, position, bezierControl, GetViewportFromRelativePosition(position));
                 if (key.FramePositionAndBezier.ContainsKey(frameIndex - 1))
                 {
                     key.ResetBezierPos(frameIndex - 1);
@@ -399,6 +399,12 @@ namespace SwarmSequencer
                 }
             }
 
+            internal Vector3 GetViewportFromRelativePosition(Vector3 relativePosition)
+            {
+                var position = grid.RelativeToWorldPos(relativePosition);
+                return SceneView.currentDrawingSceneView.camera.WorldToViewportPoint(position);
+            }
+
             /// <summary>
             /// Shifts all frames from starting to frame + offset. For example for startingFrame = 1 and offset = 1: frame 1 becomes frame 2, frame 2 becomes frame 3 and so on. Used to handle adding and deleting frames.
             /// </summary>
@@ -423,11 +429,11 @@ namespace SwarmSequencer
                             }
                             if (tempStorage.ContainsKey(keys[i]))
                             {
-                                prj.Value.SetPositionInFrame(keys[i] + offset, tempStorage[keys[i]].Item1, tempStorage[keys[i]].Item2, grid);
+                                prj.Value.SetPositionInFrame(keys[i] + offset, tempStorage[keys[i]].Item1, tempStorage[keys[i]].Item2, GetViewportFromRelativePosition(tempStorage[keys[i]].Item1));
                                 tempStorage.Remove(keys[i]);
                             }
                             else
-                                prj.Value.SetPositionInFrame(keys[i] + offset, prj.Value.FramePositionAndBezier[keys[i]].Item1, prj.Value.FramePositionAndBezier[keys[i]].Item2, grid);
+                                prj.Value.SetPositionInFrame(keys[i] + offset, prj.Value.FramePositionAndBezier[keys[i]].Item1, prj.Value.FramePositionAndBezier[keys[i]].Item2, GetViewportFromRelativePosition(prj.Value.FramePositionAndBezier[keys[i]].Item1));
                         }
                     }
                 }
@@ -447,7 +453,7 @@ namespace SwarmSequencer
                                 float delta = (newBezier - (Vector3)prj.Value.FramePositionAndBezier[frameIndex].Item2).sqrMagnitude;
                                 if ((newBezier - (Vector3)prj.Value.FramePositionAndBezier[frameIndex].Item2).sqrMagnitude > Vector3.kEpsilon)
                                 {
-                                    prj.Value.SetPositionInFrame(frameIndex, prj.Value.FramePositionAndBezier[frameIndex].Item1, newBezier, grid);
+                                    prj.Value.SetPositionInFrame(frameIndex, prj.Value.FramePositionAndBezier[frameIndex].Item1, newBezier, GetViewportFromRelativePosition(prj.Value.FramePositionAndBezier[frameIndex].Item1));
                                 }
                             }
                             if (prj.Value.FramePositionAndBezier.ContainsKey(frameIndex - 1) && !MathHelper.IsNaNVector3(prj.Value.FramePositionAndBezier[frameIndex - 1].Item2))
@@ -455,7 +461,7 @@ namespace SwarmSequencer
                                 Vector3 newBezier = grid.WorldToRelativePos(Handles.PositionHandle(grid.RelativeToWorldPos(prj.Value.FramePositionAndBezier[frameIndex - 1].Item2), gridRotation));
                                 if ((newBezier - (Vector3)prj.Value.FramePositionAndBezier[frameIndex - 1].Item2).sqrMagnitude > Vector3.kEpsilon)
                                 {
-                                    prj.Value.SetPositionInFrame(frameIndex - 1, prj.Value.FramePositionAndBezier[frameIndex - 1].Item1, newBezier, grid);
+                                    prj.Value.SetPositionInFrame(frameIndex - 1, prj.Value.FramePositionAndBezier[frameIndex - 1].Item1, newBezier, GetViewportFromRelativePosition(prj.Value.FramePositionAndBezier[frameIndex - 1].Item1));
                                 }
                             }
                         }
@@ -476,7 +482,7 @@ namespace SwarmSequencer
                             Vector3 newPos = Handles.PositionHandle(oldPos, gridRotation);
                             if ((newPos - oldPos).sqrMagnitude < Vector3.kEpsilon) continue;
                             SerializableVector3 newPosition = grid.WorldToRelativePos(newPos);
-                            prj.Value.SetPositionInFrame(frameIndex, newPosition, prj.Value.FramePositionAndBezier[frameIndex].Item2, grid);
+                            prj.Value.SetPositionInFrame(frameIndex, newPosition, prj.Value.FramePositionAndBezier[frameIndex].Item2, GetViewportFromRelativePosition(newPosition));
 
                         }
                     }
@@ -517,6 +523,7 @@ namespace SwarmSequencer
                 {
                     grid = new SwarmSequencer.MathTools.Grid((Vector2Int)gridDimensions, CalculateTRS(gridCellSize, this.gridOrigin, this.gridRotation));
                     gridPointsScreenPosition = FindWorldToScreenSpaceProjection(sceneView, grid.Cells);
+                    UpdateInstanceViewportPositions();
                 }
                 if (CurrentMode == ModificationMode.Bezier)
                 {
@@ -575,30 +582,31 @@ namespace SwarmSequencer
                             {
                                 Vector2 mouseViewportPosition = sceneView.camera.ScreenToViewportPoint(Event.current.mousePosition);
                                 Vector2 mousePositionCorrected = new Vector2(mouseViewportPosition.x, 1 - mouseViewportPosition.y);
-                                int gridCell = MathHelper.FindCellContainingPointIgnoreZ(mousePositionCorrected, gridPointsScreenPosition);
-                                if (gridCell != -1)
+                                if (CurrentMode == ModificationMode.Eraser)
                                 {
-                                    if (CurrentMode == ModificationMode.Eraser)
+                                    foreach (var v in projectileGroupContainerDict)
                                     {
-                                        foreach (var v in projectileGroupContainerDict)
+                                        foreach (var vv in v.Value.projectileInstances)
                                         {
-                                            foreach (var vv in v.Value.projectileInstances)
+                                            var vpPos = vv.Value.GetViewportPosition(SelectedFrame);
+                                            if (MathHelper.IsNaNVector3(vpPos)) continue;
+                                            if ((vpPos - mousePositionCorrected).sqrMagnitude < GetClickDetectionPrecision(sceneView.camera.transform.position, sceneView.camera.orthographicSize))
                                             {
-                                                if (vv.Value.GetCellIndex(SelectedFrame) == gridCell)
-                                                {
-                                                    vv.Value.ClearFrame(SelectedFrame);
+                                                vv.Value.ClearFrame(SelectedFrame);
+                                                if (vv.Value == SelectedProjectileInstance)
                                                     SelectedProjectileInstanceUI.UpdateSelectedInstanceUI();
-                                                }
                                             }
                                         }
                                     }
-                                    else if (CurrentMode == ModificationMode.Position && SelectedProjectileInstance != null)
+                                }
+                                else if (CurrentMode == ModificationMode.Position && SelectedProjectileInstance != null)
+                                {
+                                    var vpPos = SelectedProjectileInstance.GetViewportPosition(SelectedFrame);
+                                    Debug.Log($"vpPos: {vpPos} \n mouse pos: {mousePositionCorrected} \n Distance: {(vpPos - mousePositionCorrected).sqrMagnitude} \n precision: {GetClickDetectionPrecision(sceneView.camera.transform.position, sceneView.camera.orthographicSize)}");
+                                    if (!MathHelper.IsNaNVector3(vpPos) && (vpPos - mousePositionCorrected).sqrMagnitude < GetClickDetectionPrecision(sceneView.camera.transform.position, sceneView.camera.orthographicSize))
                                     {
-                                        if (SelectedProjectileInstance.GetCellIndex(SelectedFrame) == gridCell)
-                                        {
-                                            SelectedProjectileInstance.ClearFrame(SelectedFrame);
-                                            SelectedProjectileInstanceUI.UpdateSelectedInstanceUI();
-                                        }
+                                        SelectedProjectileInstance.ClearFrame(SelectedFrame);
+                                        SelectedProjectileInstanceUI.UpdateSelectedInstanceUI();
                                     }
                                 }
                             }
@@ -606,6 +614,12 @@ namespace SwarmSequencer
                         break;
                 }
 
+            }
+
+            float GetClickDetectionPrecision(Vector3 cameraPosition, float cameraSize)
+            {
+                float cameraDistance = MathF.Abs(grid.TRSInverse.MultiplyPoint3x4(cameraPosition).z);
+                return 1 / MathF.Max(1, MathF.Pow(cameraDistance, 2)) / cameraSize * grid.CellSize;
             }
 
             void ChangeModificationModeWithoutNotify(ModificationMode mode)
@@ -749,7 +763,7 @@ namespace SwarmSequencer
                         {
                             var g = AddNewProjectileGroupContainer(inst.Key.GroupIndex);
                             var i = g.AddProjectileInstance(inst.Key.InstanceIndex);
-                            i.SetPositionInFrame(f.Order, inst.Value.Item1, bezier);
+                            i.SetPositionInFrame(f.Order, inst.Value.Item1, bezier, GetViewportFromRelativePosition(inst.Value.Item1));
                         }
                         else
                         {
@@ -758,7 +772,7 @@ namespace SwarmSequencer
                             {
                                 g.AddProjectileInstance(inst.Key.InstanceIndex);
                             }
-                            g.projectileInstances[inst.Key.InstanceIndex].SetPositionInFrame(f.Order, inst.Value.Item1, bezier);
+                            g.projectileInstances[inst.Key.InstanceIndex].SetPositionInFrame(f.Order, inst.Value.Item1, bezier, GetViewportFromRelativePosition(inst.Value.Item1));
                         }
                     }
                     frameCount++;
@@ -767,6 +781,20 @@ namespace SwarmSequencer
                 if (frameCount > this.frameCount)
                 {
                     AddMultipleFrames(frameCount - this.frameCount);
+                }
+            }
+
+            void UpdateInstanceViewportPositions()
+            {
+                foreach (var v in projectileGroupContainerDict)
+                {
+                    foreach (var vv in v.Value.projectileInstances)
+                    {
+                        foreach (var frame in vv.Value.FramePositionAndBezier)
+                        {
+                            vv.Value.SetScreenPositionInFrame(frame.Key, GetViewportFromRelativePosition(frame.Value.Item1));
+                        }
+                    }
                 }
             }
 
