@@ -112,7 +112,6 @@ namespace SwarmSequencer
                     i.Value.ChangeVisibility(visible);
                 }
                 visibilityButton.style.backgroundColor = visible ? SequenceCreator.indicatingGreen : SequenceCreator.indicatingRed;
-                SceneView.RepaintAll();
             }
 
             public void DeleteProjectileInstance(int projectileIndex)

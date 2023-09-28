@@ -89,7 +89,8 @@ namespace SwarmSequencer
                 Position,
                 Bezier,
                 Eraser,
-                Freehand
+                Freehand,
+                Corner
             }
 
             const float editorPrecision = 1e-4f;
@@ -231,7 +232,9 @@ namespace SwarmSequencer
                 );
 
                 selectModeButtonGroup = new ButtonGroup(indicatingGreen, neutralGray, 0,
-                    rootVisualElement.Q<Button>("selectEditModeButton"), rootVisualElement.Q<Button>("selectEditBezierModeButton"), rootVisualElement.Q<Button>("selectEraserModeButton"), rootVisualElement.Q<Button>("selectPositionModeButton"));
+                    rootVisualElement.Q<Button>("selectEditModeButton"), rootVisualElement.Q<Button>("selectEditBezierModeButton"),
+                    rootVisualElement.Q<Button>("selectEraserModeButton"), rootVisualElement.Q<Button>("selectPositionModeButton"),
+                    rootVisualElement.Q<Button>("selectCornerModeButton"));
                 selectModeButtonGroup.OnValueChange += (oldValue, newValue) => ChangeModificationModeWithoutNotify((ModificationMode)newValue);
 
                 rootVisualElement.Q<Button>("AddProjectileGroupButton").clicked += () =>
@@ -564,20 +567,7 @@ namespace SwarmSequencer
                         {
                             if (Event.current.button == 0)
                             {
-                                if (SelectedProjectileInstance != null && CurrentMode == ModificationMode.Position)
-                                {
-                                    Vector2 mouseViewportPosition = sceneView.camera.ScreenToViewportPoint(Event.current.mousePosition);
-                                    Vector2 mousePositionCorrected = new Vector2(mouseViewportPosition.x, 1 - mouseViewportPosition.y);
-                                    int gridCell = MathHelper.FindCellContainingPointIgnoreZ(mousePositionCorrected, gridPointsScreenPosition);
-                                    if (gridCell != -1)
-                                    {
-                                        var projRelativePosition = grid.CellIndexToRelativePosition(gridCell).ToVector3(gridDepthLevel);
-                                        SerializableVector3 bezier = SelectedProjectileInstance.FramePositionAndBezier.ContainsKey(SelectedFrame + 1) ? (SelectedProjectileInstance.FramePositionAndBezier[SelectedFrame + 1].Item1 + (SerializableVector3)projRelativePosition) / 2 :
-                                            MathHelper.NaNVector3;
-                                        AddInstanceInfoToFrame(SelectedFrame, SelectedProjectileInstance,
-                                        projRelativePosition, bezier);
-                                    }
-                                }
+                                ProcessMouseLeftClick(CurrentMode, sceneView.camera);
                             }
                             else if (Event.current.button == 1)
                             {
@@ -603,7 +593,6 @@ namespace SwarmSequencer
                                 else if (CurrentMode == ModificationMode.Position && SelectedProjectileInstance != null)
                                 {
                                     var vpPos = SelectedProjectileInstance.GetViewportPosition(SelectedFrame);
-                                    Debug.Log($"vpPos: {vpPos} \n mouse pos: {mousePositionCorrected} \n Distance: {(vpPos - mousePositionCorrected).sqrMagnitude} \n precision: {GetClickDetectionPrecision(sceneView.camera.transform.position, sceneView.camera.orthographicSize)}");
                                     if (!MathHelper.IsNaNVector3(vpPos) && (vpPos - mousePositionCorrected).sqrMagnitude < GetClickDetectionPrecision(sceneView.camera.transform.position, sceneView.camera.orthographicSize))
                                     {
                                         SelectedProjectileInstance.ClearFrame(SelectedFrame);
@@ -617,10 +606,56 @@ namespace SwarmSequencer
 
             }
 
-            float GetClickDetectionPrecision(Vector3 cameraPosition, float cameraSize)
+            void ProcessMouseLeftClick(ModificationMode mode, Camera sceneCamera)
+            {
+                Vector2 clickPosition = sceneCamera.ScreenToViewportPoint(Event.current.mousePosition);
+                Vector2 mousePositionCorrected = new Vector2(clickPosition.x, 1 - clickPosition.y);
+                if (SelectedProjectileInstance != null)
+                {
+                    if (CurrentMode == ModificationMode.Position)
+                    {
+                        int gridCell = MathHelper.FindCellContainingPointIgnoreZ(mousePositionCorrected, gridPointsScreenPosition);
+                        if (gridCell != -1)
+                        {
+                            var projRelativePosition = grid.CellIndexToRelativePosition(gridCell).ToVector3(gridDepthLevel);
+                            SerializableVector3 bezier = SelectedProjectileInstance.FramePositionAndBezier.ContainsKey(SelectedFrame + 1) ? (SelectedProjectileInstance.FramePositionAndBezier[SelectedFrame + 1].Item1 + (SerializableVector3)projRelativePosition) / 2 :
+                                MathHelper.NaNVector3;
+                            AddInstanceInfoToFrame(SelectedFrame, SelectedProjectileInstance,
+                            projRelativePosition, bezier);
+                        }
+                    }
+                    else if (CurrentMode == ModificationMode.Eraser)
+                    {
+                        var vpPos = SelectedProjectileInstance.GetViewportPosition(SelectedFrame);
+                        float detectionPrecision = sceneCamera.orthographic ? GetClickDetectionPrecision(sceneCamera.transform.position, sceneCamera.orthographicSize) : GetClickDetectionPrecision(sceneCamera.transform.position, sceneCamera.fieldOfView, false);
+                        if (!MathHelper.IsNaNVector3(vpPos) && (vpPos - mousePositionCorrected).sqrMagnitude < detectionPrecision)
+                        {
+                            SelectedProjectileInstance.ClearFrame(SelectedFrame);
+                            SelectedProjectileInstanceUI.UpdateSelectedInstanceUI();
+                        }
+                    }
+                    else if (CurrentMode == ModificationMode.Corner)
+                    {
+                        var corner = MathHelper.FindClosestCellCornerIgnoreZ(mousePositionCorrected, gridPointsScreenPosition);
+                        var projRelativePosition = grid.WorldToRelativePos(grid.Cells[corner.Item1][corner.Item2]);
+                        SerializableVector3 bezier = SelectedProjectileInstance.FramePositionAndBezier.ContainsKey(SelectedFrame + 1) ? (SelectedProjectileInstance.FramePositionAndBezier[SelectedFrame + 1].Item1 + (SerializableVector3)projRelativePosition) / 2 :
+                            MathHelper.NaNVector3;
+                        AddInstanceInfoToFrame(SelectedFrame, SelectedProjectileInstance,
+                        projRelativePosition, bezier);
+                    }
+                }
+            }
+
+            float GetClickDetectionPrecision(Vector3 cameraPosition, float cameraSize, bool orthographic = true)
             {
                 float cameraDistance = MathF.Abs(grid.TRSInverse.MultiplyPoint3x4(cameraPosition).z);
-                return 1 / MathF.Max(1, MathF.Pow(cameraDistance, 2)) / cameraSize * grid.CellSize;
+                if (orthographic)
+                    return 1 / MathF.Max(1, MathF.Pow(cameraDistance, 2)) / cameraSize * grid.CellSize;
+                else
+                {
+                    float mult = cameraDistance * MathF.Atan(cameraSize);
+                    return 1 / MathF.Max(1, MathF.Pow(cameraDistance, 2)) / mult * grid.CellSize;
+                }
             }
 
             void ChangeModificationModeWithoutNotify(ModificationMode mode)

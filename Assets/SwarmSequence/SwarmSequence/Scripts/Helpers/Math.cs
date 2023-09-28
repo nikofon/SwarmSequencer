@@ -77,6 +77,29 @@ namespace SwarmSequencer
                 return res;
             }
 
+            public static Tuple<int, int> FindClosestCellCornerIgnoreZ(Vector2 point, Dictionary<int, Vector3[]> cells)
+            {
+                Tuple<int, int> res = new Tuple<int, int>(0, 0);
+                float distance = ((Vector2)cells[0][0] - point).sqrMagnitude;
+                float newDistance = 0;
+                int i = 0;
+                foreach (var c in cells)
+                {
+                    i = 0;
+                    foreach (var p in c.Value)
+                    {
+                        newDistance = ((Vector2)p - point).sqrMagnitude;
+                        if (newDistance < distance)
+                        {
+                            res = new Tuple<int, int>(c.Key, i);
+                            distance = newDistance;
+                        }
+                        i++;
+                    }
+                }
+                return res;
+            }
+
             public static T FindMax<T>(params T[] comparers) where T : IComparable
             {
                 T max = comparers[0];
