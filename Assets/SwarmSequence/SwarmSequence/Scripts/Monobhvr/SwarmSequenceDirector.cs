@@ -450,7 +450,6 @@ namespace SwarmSequencer
         public void Play()
         {
             LoadFrameData();
-            Debug.Log($"Frame data: {swarmSequenceData.Frames == null}");
             if (paused) { paused = false; return; }
             if (active) return;
             ChangeFrame(currentFrame);
@@ -504,7 +503,6 @@ namespace SwarmSequencer
 
         IEnumerator RunSequence(bool useFixedTime = false, float fixedTime = 0.002f)
         {
-            Debug.Log("started sequence");
             YieldInstruction waitAmount;
             YieldInstruction endOfFrame = new WaitForEndOfFrame();
 

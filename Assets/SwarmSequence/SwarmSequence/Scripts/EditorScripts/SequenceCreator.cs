@@ -7,7 +7,6 @@ using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 using SwarmSequencer.MathTools;
 using SwarmSequencer.Serialization;
-using System.IO;
 
 namespace SwarmSequencer
 {
@@ -269,7 +268,6 @@ namespace SwarmSequencer
 
             internal void SelectProjectileInstance(ProjectileInstanceContainer instance)
             {
-
                 SelectedProjectileInstanceUI.UpdateSelectedInstanceUI(instance);
                 SelectedProjectileInstance = instance;
             }
@@ -447,8 +445,10 @@ namespace SwarmSequencer
             {
                 foreach (var prjGrp in projectileGroupContainerDict)
                 {
+                    if (!prjGrp.Value.visability) continue;
                     foreach (var prj in prjGrp.Value.projectileInstances)
                     {
+                        if (!prj.Value.visible) continue;
                         if (prj.Value.FramePositionAndBezier.ContainsKey(frameIndex))
                         {
                             if (prj.Value.FramePositionAndBezier.ContainsKey(frameIndex + 1) && !MathHelper.IsNaNVector3(prj.Value.FramePositionAndBezier[frameIndex].Item2))
@@ -478,8 +478,10 @@ namespace SwarmSequencer
             {
                 foreach (var prjGrp in projectileGroupContainerDict)
                 {
+                    if (!prjGrp.Value.visability) continue;
                     foreach (var prj in prjGrp.Value.projectileInstances)
                     {
+                        if (!prj.Value.visible) continue;
                         if (prj.Value.FramePositionAndBezier.ContainsKey(frameIndex))
                         {
                             Vector3 oldPos = grid.RelativeToWorldPos(prj.Value.FramePositionAndBezier[frameIndex].Item1);
@@ -527,7 +529,6 @@ namespace SwarmSequencer
                 {
                     grid = new SwarmSequencer.MathTools.Grid((Vector2Int)gridDimensions, CalculateTRS(gridCellSize, this.gridOrigin, this.gridRotation));
                     gridPointsScreenPosition = FindWorldToScreenSpaceProjection(sceneView, grid.Cells);
-                    UpdateInstanceViewportPositions();
                 }
                 if (CurrentMode == ModificationMode.Bezier)
                 {
@@ -558,6 +559,7 @@ namespace SwarmSequencer
                             {
                                 gridPointsScreenPosition = FindWorldToScreenSpaceProjection(sceneView, grid.Cells);
                                 sceneCameraMatrix = sceneView.camera.worldToCameraMatrix;
+                                UpdateInstanceViewportPositions();
                             }
                         }
                         break;
@@ -581,7 +583,7 @@ namespace SwarmSequencer
                                         {
                                             var vpPos = vv.Value.GetViewportPosition(SelectedFrame);
                                             if (MathHelper.IsNaNVector3(vpPos)) continue;
-                                            if ((vpPos - mousePositionCorrected).sqrMagnitude < GetClickDetectionPrecision(sceneView.camera.transform.position, sceneView.camera.orthographicSize))
+                                            if ((vpPos - mousePositionCorrected).sqrMagnitude < GetClickDetectionPrecision(sceneView.camera.transform.position, sceneView.camera.orthographicSize, sceneView.camera.orthographic))
                                             {
                                                 vv.Value.ClearFrame(SelectedFrame);
                                                 if (vv.Value == SelectedProjectileInstance)
