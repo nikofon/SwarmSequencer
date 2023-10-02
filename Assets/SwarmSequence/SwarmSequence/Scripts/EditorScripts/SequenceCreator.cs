@@ -322,6 +322,7 @@ namespace SwarmSequencer
 
             void DeleteProjectielGroupContainer(int containerIndex)
             {
+                if (SelectedProjectileInstance.parent == projectileGroupContainerDict[containerIndex]) SelectProjectileInstance(null);
                 projectileGroupScrollView.Remove(projectileGroupContainerDict[containerIndex].root);
                 projectileGroupContainerDict.Remove(containerIndex);
                 projectileGroupIntField.value = FindFreeProjectileGroupIndex();

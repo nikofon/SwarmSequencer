@@ -33,7 +33,6 @@ namespace SwarmSequencer
             [Shortcut("SequenceCreator/SelectEditBezierMode", KeyCode.Alpha2, ShortcutModifiers.Alt)]
             public static void SelectEditBezierMode()
             {
-                Debug.Log("selecting bezier mode");
                 if (activeSequenceCreator == null) return;
                 activeSequenceCreator.SelectModificationMode(SequenceCreator.ModificationMode.Bezier);
             }
@@ -50,6 +49,12 @@ namespace SwarmSequencer
             {
                 if (activeSequenceCreator == null) return;
                 activeSequenceCreator.SelectModificationMode(SequenceCreator.ModificationMode.Freehand);
+            }
+            [Shortcut("SequenceCreator/SelectCornerMode", KeyCode.Alpha5, ShortcutModifiers.Alt)]
+            public static void SelectCornerMode()
+            {
+                if (activeSequenceCreator == null) return;
+                activeSequenceCreator.SelectModificationMode(SequenceCreator.ModificationMode.Corner);
             }
         }
     }
