@@ -21,6 +21,14 @@ namespace SwarmSequencer
         }
     }
 
+    public class SequenceRuncicleExcpetion : Exception
+    {
+        public SequenceRuncicleExcpetion()
+        {
+            Debug.LogError("There's been an error in handling sequence run cicle! The onCicleEnd function wasn't set properly!");
+        }
+    }
+
     public class NamingViolationException : Exception
     {
         public NamingViolationException()

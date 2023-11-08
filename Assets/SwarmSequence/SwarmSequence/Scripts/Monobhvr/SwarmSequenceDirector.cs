@@ -7,6 +7,7 @@ using System;
 using Unity.Collections;
 using UnityEditor;
 using SwarmSequencer.MathTools;
+using System.Linq;
 
 namespace SwarmSequencer
 {
@@ -117,7 +118,7 @@ namespace SwarmSequencer
         /// <summary>
         /// Gets or sets the duration of one complete animation. If you want to set it, be sure that there is a desserialized seqeunce in use.
         /// </summary>
-        public float Duration { get => CalculateDuration(); set { if (FrameDatas != null) TimeBetweenFrames = CalculateTimeBetweenFrames(value, FrameDatas.Count, frameTimeOverrides); } }
+        public float Duration { get => GetDuration(); set { if (FrameDatas != null) TimeBetweenFrames = CalculateTimeBetweenFrames(value, FrameDatas.Count, frameTimeOverrides); } }
 
         bool paused;
 
@@ -132,14 +133,14 @@ namespace SwarmSequencer
         [Min(1)]
         public int batchSize = 1;
 
-        void ChangeFrame(int newFrame, DisposalMode dsplM = DisposalMode.Normal)
+        bool ChangeFrame(int newFrame, DisposalMode dsplM = DisposalMode.Normal)
         {
             DisposeNativeCollections();
             DisposeBezierPoints();
             if ((order > 0 && newFrame + 1 >= FrameDatas.Count) || (order < 0 && newFrame - 1 < 0))
             {
                 OnAnimationFinished?.Invoke();
-                return;
+                return false;
             }
             t = 0;
             var timeOverride = frameTimeOverrides.Find(x => x.Equals(new FrameTimeOverride() { FrameOne = currentFrame, FrameTwo = currentFrame + order }));
@@ -148,13 +149,6 @@ namespace SwarmSequencer
             Dictionary<ProjectileKey, Vector3> toInstantiate = new Dictionary<ProjectileKey, Vector3>();
             List<ProjectileKey> toRemove = new List<ProjectileKey>();
             var nextPos = FrameDatas[newFrame + order].ProjectilePositionData;
-            foreach (var v in pos)
-            {
-                var matrix = UseWorldSpace ? Matrix4x4.identity : transform.localToWorldMatrix;
-                if (!projectilePositions.ContainsKey(v.Key)) toInstantiate.Add(v.Key, matrix.MultiplyPoint3x4(v.Value.Item1));
-            }
-            if (toInstantiate.Count > 0)
-                InstantiateProjectiles(ref toInstantiate);
             foreach (var p in projectilePositions)
             {
                 if (!nextPos.ContainsKey(p.Key) || !pos.ContainsKey(p.Key)) toRemove.Add(p.Key);
@@ -170,28 +164,38 @@ namespace SwarmSequencer
                     else DestroyImmediate(trvmGO.gameObject);
                 }
             }
+            foreach (var v in pos)
+            {
+                var matrix = UseWorldSpace ? Matrix4x4.identity : transform.localToWorldMatrix;
+                if (!projectilePositions.ContainsKey(v.Key)) toInstantiate.Add(v.Key, matrix.MultiplyPoint3x4(CellSize * (Vector3)v.Value.Item1));
+            }
+            if (toInstantiate.Count > 0)
+                InstantiateProjectiles(ref toInstantiate);
+
+
             bezierInterpolationPoints = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             currentPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             originalPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             targetPositions = new NativeArray<Vector3>(pos.Count, Allocator.Persistent);
             int i = 0;
-            foreach (var p in pos)
+            foreach (var instance in projectilePositions)
             {
-                currentPositions[i] = CellSize * (Vector3)p.Value.Item1;
-                originalPositions[i] = CellSize * (Vector3)p.Value.Item1;
+                var p = pos[instance.Key];
+
+                originalPositions[i] = CellSize * (Vector3)p.Item1;
                 if (order > 0)
                 {
-                    bezierInterpolationPoints[i] = CellSize * (Vector3)p.Value.Item2;
+                    bezierInterpolationPoints[i] = CellSize * (Vector3)p.Item2;
                 }
                 else
                 {
-                    bezierInterpolationPoints[i] = CellSize * (Vector3)nextPos[p.Key].Item2;
+                    bezierInterpolationPoints[i] = CellSize * (Vector3)nextPos[instance.Key].Item2;
                 }
-                targetPositions[i] = CellSize * (Vector3)nextPos[p.Key].Item1;
+                targetPositions[i] = CellSize * (Vector3)nextPos[instance.Key].Item1;
                 i++;
             }
-
             OnFrameChanged?.Invoke(newFrame, newFrame + order);
+            return true;
         }
 
         /// <summary>
@@ -277,7 +281,7 @@ namespace SwarmSequencer
             FrameDatas = swarmSequenceData.Frames;
         }
 
-        float CalculateDuration()
+        float GetDuration()
         {
             float res = 0;
             for (int i = 0; i < FrameDatas.Count - 1; i++)
@@ -360,9 +364,12 @@ namespace SwarmSequencer
                 GameObject go = foundObj.prefab;
                 if (go == null) throw new NullReferenceException($"Prefab for group {v.Key.GroupIndex} is null");
                 var g = Instantiate(go, v.Value, Quaternion.identity);
-                projectilePositions.Add(new ProjectileKey(v.Key.GroupIndex, v.Key.InstanceIndex), g.transform);
+#if UNITY_EDITOR
+                g.name = v.Key.ToString();
+#endif
+                projectilePositions.Add(v.Key, g.transform);
             }
-            projectilePositions.SortProjectileDictionary();
+            projectilePositions = projectilePositions.SortProjectileDictionary();
         }
 
         /// <summary>
@@ -478,13 +485,17 @@ namespace SwarmSequencer
         /// <summary>
         /// Stops current animation, applying "completed objects handling" procedure to remaining objects
         /// </summary>
-        public void Stop()
+        public void Stop(DisposalMode dspslm = DisposalMode.Normal)
         {
             active = false;
             if (CompletedObjectsHandling == UnassignedObjectsHandlingType.Destroy)
             {
                 foreach (var obj in projectilePositions)
-                    if (obj.Value != null) Destroy(obj.Value.gameObject);
+                    if (obj.Value != null)
+                    {
+                        if (dspslm == DisposalMode.Normal) Destroy(obj.Value.gameObject);
+                        else { DestroyImmediate(obj.Value.gameObject); }
+                    }
             }
             projectilePositions.Clear();
             order = 1;
@@ -505,7 +516,8 @@ namespace SwarmSequencer
         {
             YieldInstruction waitAmount;
             YieldInstruction endOfFrame = new WaitForEndOfFrame();
-
+            bool shouldContinue = true;
+            Action onCycleEnd = () => { throw new SequenceRuncicleExcpetion(); };
             if (!useFixedTime) waitAmount = endOfFrame;
             else waitAmount = new WaitForSeconds(fixedTime);
             while (active)
@@ -515,8 +527,7 @@ namespace SwarmSequencer
                     switch (AnimationType)
                     {
                         case AnimationTypes.Pingpong:
-                            Action increment = () => { order *= -1; skipFrame = true; };
-                            OnAnimationFinished += increment;
+                            onCycleEnd = () => { order *= -1; skipFrame = true; };
                             if (!skipFrame)
                                 InstanceMovement();
                             if (t >= 1)
@@ -526,14 +537,12 @@ namespace SwarmSequencer
                                     currentFrame += order;
                                 }
                                 else { skipFrame = false; }
-                                ChangeFrame(currentFrame, DisposalMode.Normal);
+                                shouldContinue = ChangeFrame(currentFrame, DisposalMode.Normal);
                             }
                             yield return waitAmount;
-                            OnAnimationFinished -= increment;
                             break;
                         case AnimationTypes.Repeat:
-                            Action reset = () => { skipFrame = true; currentFrame = 0; };
-                            OnAnimationFinished += reset;
+                            onCycleEnd = () => { skipFrame = true; currentFrame = 0; };
                             if (!skipFrame) InstanceMovement();
                             if (t >= 1)
                             {
@@ -544,24 +553,22 @@ namespace SwarmSequencer
                                     DisposeBezierPoints();
                                 }
                                 else { skipFrame = false; }
-                                ChangeFrame(currentFrame, DisposalMode.Normal);
+                                shouldContinue = ChangeFrame(currentFrame, DisposalMode.Normal);
                             }
                             yield return waitAmount;
-                            OnAnimationFinished -= reset;
                             break;
                         case AnimationTypes.Single:
-                            Action stop = () => { Stop(); };
-                            OnAnimationFinished += stop;
+                            onCycleEnd = () => { Stop(); };
                             InstanceMovement();
                             if (t >= 1)
                             {
                                 currentFrame++;
-                                ChangeFrame(currentFrame, DisposalMode.Normal);
+                                shouldContinue = ChangeFrame(currentFrame, DisposalMode.Normal);
                             }
                             yield return waitAmount;
-                            OnAnimationFinished -= stop;
                             break;
                     }
+                    if (!shouldContinue) onCycleEnd();
                     if (!useFixedTime) { t += Time.deltaTime / timeOverrideValue; currentTime += order * Time.deltaTime; }
                     else { currentTime += order * fixedTime; t += fixedTime / timeOverrideValue; }
                 }

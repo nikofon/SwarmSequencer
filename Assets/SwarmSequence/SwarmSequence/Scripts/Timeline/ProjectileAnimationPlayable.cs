@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Playables;
 using UnityEngine.Timeline;
-
 namespace SwarmSequencer
 {
 
@@ -38,7 +37,7 @@ namespace SwarmSequencer
                 if (owner != null && info.effectivePlayState == PlayState.Paused)
                 {
                     if (Application.isPlaying) owner.Stop();
-                    else owner.StopAnimationEditor();
+                    else owner.Stop(SwarmSequenceDirector.DisposalMode.Immediate); ;
                 }
 #else
                 if(owner != null && info.effectivePlayState == PlayState.Paused) {
@@ -53,7 +52,7 @@ namespace SwarmSequencer
                 if (owner != null)
                 {
                     if (Application.isPlaying) owner.Stop();
-                    else owner.StopAnimationEditor();
+                    else owner.Stop(SwarmSequenceDirector.DisposalMode.Immediate); ;
                 }
 #else
                 owner?.Stop();

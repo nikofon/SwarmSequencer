@@ -117,6 +117,11 @@ namespace SwarmSequencer
             return scale * new Vector3(x, y, z);
         }
 
+        public override string ToString()
+        {
+            return $"({x}, {y}, {z})";
+        }
+
         public readonly static SerializableVector3 Infinity = new SerializableVector3(float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity);
 
         public static implicit operator Vector3(SerializableVector3 a) => new Vector3(a.x, a.y, a.z);

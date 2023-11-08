@@ -194,7 +194,7 @@ namespace SwarmSequencer
             }
             if (GUILayout.Button("Stop"))
             {
-                if (!Application.isPlaying) targetDirector.StopAnimationEditor();
+                if (!Application.isPlaying) targetDirector.Stop(SwarmSequenceDirector.DisposalMode.Immediate);
                 else targetDirector.Stop();
             }
             GUI.enabled = true;

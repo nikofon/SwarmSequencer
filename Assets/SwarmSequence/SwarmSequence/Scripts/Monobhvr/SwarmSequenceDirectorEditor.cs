@@ -17,23 +17,12 @@ namespace SwarmSequencer
             active = true;
             EditorCoroutineUtility.StartCoroutine(RunProjectileMovementEditor(0.02f), this);
         }
-        public void StopAnimationEditor()
-        {
-            active = false;
-            paused = false;
-            foreach (var obj in projectilePositions) DestroyImmediate(obj.Value.gameObject);
-            projectilePositions.Clear();
-            order = 1;
-            skipFrame = false;
-            currentFrame = 0;
-            currentTime = 0;
-            DisposeNativeCollections();
-            DisposeBezierPoints();
-        }
 
         IEnumerator RunProjectileMovementEditor(float delta)
         {
             var waitAmount = new EditorWaitForSeconds(delta);
+            bool shouldContinue = true;
+            Action onCycleEnd = () => { throw new SequenceRuncicleExcpetion(); };
             while (active)
             {
                 if (!paused)
@@ -41,8 +30,7 @@ namespace SwarmSequencer
                     switch (AnimationType)
                     {
                         case AnimationTypes.Pingpong:
-                            Action increment = () => { order *= -1; skipFrame = true; };
-                            OnAnimationFinished += increment;
+                            onCycleEnd = () => { order *= -1; skipFrame = true; };
                             if (!skipFrame)
                                 InstanceMovement();
                             if (t >= 1)
@@ -54,14 +42,12 @@ namespace SwarmSequencer
                                     DisposeBezierPoints();
                                 }
                                 else { skipFrame = false; }
-                                ChangeFrame(currentFrame, DisposalMode.Immediate);
+                                shouldContinue = ChangeFrame(currentFrame, DisposalMode.Immediate);
                             }
                             yield return waitAmount;
-                            OnAnimationFinished -= increment;
                             break;
                         case AnimationTypes.Repeat:
-                            Action reset = () => { skipFrame = true; currentFrame = 0; };
-                            OnAnimationFinished += reset;
+                            onCycleEnd = () => { skipFrame = true; currentFrame = 0; };
                             if (!skipFrame) InstanceMovement();
                             if (t >= 1)
                             {
@@ -72,26 +58,24 @@ namespace SwarmSequencer
                                     DisposeBezierPoints();
                                 }
                                 else { skipFrame = false; }
-                                ChangeFrame(currentFrame, dsplM: DisposalMode.Immediate);
+                                shouldContinue = ChangeFrame(currentFrame, dsplM: DisposalMode.Immediate);
                             }
                             yield return waitAmount;
-                            OnAnimationFinished -= reset;
                             break;
                         case AnimationTypes.Single:
-                            Action stop = () => { StopAnimationEditor(); };
-                            OnAnimationFinished += stop;
+                            onCycleEnd = () => { Stop(DisposalMode.Immediate); };
                             InstanceMovement();
                             if (t >= 1)
                             {
                                 currentFrame++;
                                 DisposeNativeCollections();
                                 DisposeBezierPoints();
-                                ChangeFrame(currentFrame, dsplM: DisposalMode.Immediate);
+                                shouldContinue = ChangeFrame(currentFrame, dsplM: DisposalMode.Immediate);
                             }
                             yield return waitAmount;
-                            OnAnimationFinished -= stop;
                             break;
                     }
+                    if (!shouldContinue) onCycleEnd();
                     t += delta / timeOverrideValue;
                     currentTime += order * delta;
                 }
@@ -105,7 +89,7 @@ namespace SwarmSequencer
             {
                 if (Active)
                 {
-                    StopAnimationEditor();
+                    Stop(DisposalMode.Immediate);
                 }
             }
         }

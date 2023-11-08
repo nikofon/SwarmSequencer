@@ -872,6 +872,17 @@ namespace SwarmSequencer
                     }
                 }
                 data.Sort();
+                if (data[data.Count - 1].Order < data.Count - 1)
+                {
+                    for (int i = 0; i < data.Count; i++)
+                    {
+                        if (data.Find(x => x.Order != i) == null)
+                        {
+                            data.Add(new FrameData(new Dictionary<ProjectileKey, Tuple<SerializableVector3, SerializableVector3>>(), i));
+                        }
+                    }
+                    data.Sort();
+                }
                 FrameDataSerializer.SaveFrameData(path, data);
                 return true;
             }
